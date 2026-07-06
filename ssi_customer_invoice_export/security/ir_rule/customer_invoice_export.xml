@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 OpenSynergy Indonesia
+     Copyright 2026 PT. Simetri Sinergi Indonesia
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+<odoo>
+<!-- Rule 1: Internal user can only access their own data -->
+<record id="customer_invoice_export_internal_user_rule" model="ir.rule">
+    <field name="name">Customer Invoice Export - Internal Users</field>
+    <field name="model_id" ref="model_customer_invoice_export" />
+    <field name="groups" eval="[(4, ref('base.group_user'))]" />
+    <field name="domain_force">[('user_id','=',user.id)]</field>
+    <field name="perm_unlink" eval="1" />
+    <field name="perm_write" eval="1" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_create" eval="1" />
+</record>
+
+<!-- Rule 2: Company -->
+<record id="customer_invoice_export_company_rule" model="ir.rule">
+    <field name="name">Customer Invoice Export - Responsible to company data</field>
+    <field name="model_id" ref="model_customer_invoice_export" />
+    <field name="groups" eval="[(4, ref('customer_invoice_export_company_group'))]" />
+    <field name="domain_force">[('company_id','=',user.company_id.id)]</field>
+    <field name="perm_unlink" eval="1" />
+    <field name="perm_write" eval="1" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_create" eval="1" />
+</record>
+
+<!-- Rule 3: Company and All Child Companies -->
+<record id="customer_invoice_export_companies_rule" model="ir.rule">
+    <field
+            name="name"
+        >Customer Invoice Export - Responsible to company and all child companies data</field>
+    <field name="model_id" ref="model_customer_invoice_export" />
+    <field
+            name="groups"
+            eval="[(4, ref('customer_invoice_export_company_child_group'))]"
+        />
+    <field name="domain_force">[('company_id','in',user.company_ids.ids)]</field>
+    <field name="perm_unlink" eval="1" />
+    <field name="perm_write" eval="1" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_create" eval="1" />
+</record>
+
+<!-- Rule 4: All data -->
+<record id="customer_invoice_export_all_rule" model="ir.rule">
+    <field name="name">Customer Invoice Export - All</field>
+    <field name="model_id" ref="model_customer_invoice_export" />
+    <field name="groups" eval="[(4, ref('customer_invoice_export_all_group'))]" />
+    <field name="domain_force">[(1,'=',1)]</field>
+    <field name="perm_unlink" eval="1" />
+    <field name="perm_write" eval="1" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_create" eval="1" />
+</record>
+</odoo>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 OpenSynergy Indonesia
+     Copyright 2026 PT. Simetri Sinergi Indonesia
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+<odoo>
+<record
+        id="customer_invoice_export_workflow_module_category"
+        model="ir.module.category"
+    >
+    <field name="name">Customer Invoice Export</field>
+    <field
+            name="parent_id"
+            ref="ssi_financial_accounting.financial_accounting_module_category"
+        />
+</record>
+
+<record
+        id="customer_invoice_export_data_ownership_module_category"
+        model="ir.module.category"
+    >
+    <field name="name">Customer Invoice Export</field>
+    <field
+            name="parent_id"
+            ref="ssi_financial_accounting.financial_accounting_data_ownership_module_category"
+        />
+</record>
+</odoo>

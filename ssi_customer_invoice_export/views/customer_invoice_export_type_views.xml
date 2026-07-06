@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 OpenSynergy Indonesia
+     Copyright 2026 PT. Simetri Sinergi Indonesia
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+<odoo>
+<record id="customer_invoice_export_type_view_search" model="ir.ui.view">
+    <field name="name">customer_invoice_export_type - search</field>
+    <field name="model">customer_invoice_export_type</field>
+    <field
+            name="inherit_id"
+            ref="ssi_master_data_mixin.mixin_master_data_view_search"
+        />
+    <field name="mode">primary</field>
+    <field name="arch" type="xml">
+        <data>
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="default_output_format" />
+            </xpath>
+        </data>
+    </field>
+</record>
+
+<record id="customer_invoice_export_type_view_tree" model="ir.ui.view">
+    <field name="name">customer_invoice_export_type - tree</field>
+    <field name="model">customer_invoice_export_type</field>
+    <field name="inherit_id" ref="ssi_master_data_mixin.mixin_master_data_view_tree" />
+    <field name="mode">primary</field>
+    <field name="arch" type="xml">
+        <data>
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="default_output_format" />
+            </xpath>
+        </data>
+    </field>
+</record>
+
+<record id="customer_invoice_export_type_view_form" model="ir.ui.view">
+    <field name="name">customer_invoice_export_type - form</field>
+    <field name="model">customer_invoice_export_type</field>
+    <field name="inherit_id" ref="ssi_master_data_mixin.mixin_master_data_view_form" />
+    <field name="mode">primary</field>
+    <field name="arch" type="xml">
+        <data>
+            <xpath expr="//notebook/page[@name='note']" position="before">
+                <page name="output_option" string="Output Option">
+                    <group name="output_option_1" colspan="4" col="2">
+                        <field name="default_output_format" />
+                        <field name="file_encoding" />
+                        <field name="csv_delimiter" />
+                        <field name="csv_quotechar" />
+                        <field name="xlsx_sheet_name" />
+                        <field name="txt_field_separator" />
+                    </group>
+                </page>
+                <page name="journal_config" string="Journal Criteria">
+                    <group name="journal_config_1" colspan="4" col="2">
+                        <field name="journal_selection_method" />
+                        <field
+                                name="journal_ids"
+                                widget="many2many_tags"
+                                attrs="{'invisible':[('journal_selection_method','!=','manual')]}"
+                            />
+                        <field
+                                name="journal_domain"
+                                widget="domain"
+                                options="{'model': 'account.journal', 'in_dialog': True}"
+                                attrs="{'invisible':[('journal_selection_method','!=','domain')]}"
+                            />
+                        <field
+                                name="journal_python_code"
+                                widget="ace"
+                                attrs="{'invisible':[('journal_selection_method','!=','code')]}"
+                            />
+                    </group>
+                </page>
+                <page name="product_config" string="Product Criteria">
+                    <group name="product_config_1" colspan="4" col="2">
+                        <field name="product_selection_method" />
+                        <field
+                                name="product_ids"
+                                widget="many2many_tags"
+                                attrs="{'invisible':[('product_selection_method','!=','manual')]}"
+                            />
+                        <field
+                                name="product_domain"
+                                widget="domain"
+                                options="{'model': 'product.product', 'in_dialog': True}"
+                                attrs="{'invisible':[('product_selection_method','!=','domain')]}"
+                            />
+                        <field
+                                name="product_python_code"
+                                widget="ace"
+                                attrs="{'invisible':[('product_selection_method','!=','code')]}"
+                            />
+                    </group>
+                </page>
+                <page name="parser_config" string="Parser">
+                    <group name="parser_config_1" colspan="4" col="1">
+                        <field name="parser_python_code" widget="ace" nolabel="1" />
+                    </group>
+                </page>
+            </xpath>
+        </data>
+    </field>
+</record>
+
+<record id="customer_invoice_export_type_action" model="ir.actions.act_window">
+    <field name="name">Customer Invoice Export Types</field>
+    <field name="res_model">customer_invoice_export_type</field>
+    <field name="view_mode">tree,form</field>
+</record>
+
+<menuitem
+        id="customer_invoice_export_type_menu"
+        name="Customer Invoice Export Types"
+        parent="ssi_financial_accounting.menu_financial_accounting_configuration"
+        action="customer_invoice_export_type_action"
+        groups="customer_invoice_export_type_group"
+        sequence="235"
+    />
+</odoo>

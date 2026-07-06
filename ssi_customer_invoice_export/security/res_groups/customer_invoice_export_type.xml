@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 OpenSynergy Indonesia
+     Copyright 2026 PT. Simetri Sinergi Indonesia
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+<odoo>
+<record id="customer_invoice_export_type_group" model="res.groups">
+    <field name="name">Customer Invoice Export Type</field>
+    <field
+            name="category_id"
+            ref="ssi_financial_accounting.financial_accounting_configurator_module_category"
+        />
+    <field
+            name="users"
+            eval="[(4, ref('base.user_root')), (4, ref('base.user_admin'))]"
+        />
+</record>
+</odoo>

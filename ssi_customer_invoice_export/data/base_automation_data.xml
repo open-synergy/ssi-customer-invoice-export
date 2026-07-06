@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 OpenSynergy Indonesia
+     Copyright 2026 PT. Simetri Sinergi Indonesia
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+<odoo>
+<record id="customer_invoice_export_done" model="base.automation">
+    <field
+            name="action_server_id"
+            ref="customer_invoice_export_action_recompute_queue_done_result"
+        />
+    <field name="trigger">on_write</field>
+    <field name="filter_pre_domain">[]</field>
+    <field name="filter_domain">[('done_queue_job_batch_state','=','finished')]</field>
+</record>
+</odoo>
