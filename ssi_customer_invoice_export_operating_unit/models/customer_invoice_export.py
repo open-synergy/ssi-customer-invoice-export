@@ -23,7 +23,11 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         super()._compute_allowed_journal_ids()
         for record in self:
             if record.operating_unit_id and record.allowed_journal_ids:
+                # A journal with no operating_unit_ids is unrestricted (usable
+                # by any OU) -- same convention as account.move's own
+                # _check_journal_operating_unit constraint. Only exclude
+                # journals that are restricted to a different OU.
                 record.allowed_journal_ids = record.allowed_journal_ids.filtered(
-                    lambda journal, record=record: record.operating_unit_id
-                    in journal.operating_unit_ids
+                    lambda journal, record=record: not journal.operating_unit_ids
+                    or record.operating_unit_id in journal.operating_unit_ids
                 )

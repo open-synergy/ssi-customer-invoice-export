@@ -139,8 +139,16 @@ class TestCustomerInvoiceExportOperatingUnit(YamlTransactionCase):
         product = self._create_product("Journal Empty Product", income_account)
         ctype = self._create_export_type(journal_a + journal_b, product)
 
+        # operating_unit_id must be cleared explicitly: mixin.single_operating_unit
+        # defaults it from the current user's default operating unit, so simply
+        # omitting the key from create() does not mean "empty" here.
         export_doc = self.env["customer_invoice_export"].create(
-            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+            {
+                "type_id": ctype.id,
+                "date": "2026-03-01",
+                "output_format": "csv",
+                "operating_unit_id": False,
+            }
         )
         self.assertFalse(export_doc.operating_unit_id)
         self.assertEqual(
