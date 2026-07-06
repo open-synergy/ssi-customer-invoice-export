@@ -54,7 +54,7 @@ repos:
         args:
           - --addons-dir=.
           - --branch=14.0
-          - --org-name=andhit-r
+          - --org-name=open-synergy
           - --repo-name=ssi-customer-invoice-export
           - --if-source-changed
           - --keep-source-digest
