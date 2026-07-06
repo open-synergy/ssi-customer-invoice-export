@@ -9,6 +9,7 @@ setuptools.setup(
     version=version,
     install_requires=[
         'odoo14-addon-ssi_customer_invoice_export',
+        'odoo14-addon-ssi_customer_invoice_export_operating_unit',
     ],
     classifiers=[
         'Programming Language :: Python',
