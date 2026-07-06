@@ -1,0 +1,8 @@
+odoo-yaml-test
+odoo14-addon-ssi-master-data-mixin
+odoo14-addon-ssi-m2o-configurator-mixin
+odoo14-addon-ssi-financial-accounting
+odoo14-addon-ssi-transaction-confirm-mixin
+odoo14-addon-ssi-transaction-queue-done-mixin
+odoo14-addon-ssi-transaction-cancel-mixin
+odoo14-addon-queue-job-batch

@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 OpenSynergy Indonesia
+     Copyright 2026 PT. Simetri Sinergi Indonesia
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+<odoo>
+<record id="customer_invoice_export_view_search" model="ir.ui.view">
+    <field name="name">customer_invoice_export - search</field>
+    <field
+            name="inherit_id"
+            ref="ssi_transaction_mixin.mixin_transaction_view_search"
+        />
+    <field name="model">customer_invoice_export</field>
+    <field name="mode">primary</field>
+    <field name="arch" type="xml">
+        <data>
+            <xpath expr="//field[@name='name']" position="after">
+                <field name="type_id" />
+                <field name="date" />
+                <filter
+                        name="filter_today"
+                        string="Today"
+                        domain="[('date','=',context_today().strftime('%Y-%m-%d'))]"
+                    />
+                <filter
+                        name="filter_this_month"
+                        string="This Month"
+                        domain="[('date','&gt;=', (context_today() + relativedelta(day=1)).strftime('%Y-%m-%d')),('date','&lt;=', (context_today() + relativedelta(day=31)).strftime('%Y-%m-%d'))]"
+                    />
+                <separator />
+                <group expand="0" string="Group By">
+                    <filter
+                            name="group_by_type"
+                            string="Type"
+                            context="{'group_by': 'type_id'}"
+                        />
+                    <filter
+                            name="group_by_date"
+                            string="Date"
+                            context="{'group_by': 'date:month'}"
+                        />
+                </group>
+            </xpath>
+        </data>
+    </field>
+</record>
+
+<record id="customer_invoice_export_view_tree" model="ir.ui.view">
+    <field name="name">customer_invoice_export - tree</field>
+    <field name="model">customer_invoice_export</field>
+    <field name="inherit_id" ref="ssi_transaction_mixin.mixin_transaction_view_tree" />
+    <field name="mode">primary</field>
+    <field name="arch" type="xml">
+        <data>
+            <xpath expr="//field[@name='company_id']" position="after">
+                <field name="date" />
+                <field name="type_id" />
+                <field name="output_format" />
+            </xpath>
+        </data>
+    </field>
+</record>
+
+<record id="customer_invoice_export_view_form" model="ir.ui.view">
+    <field name="name">customer_invoice_export - form</field>
+    <field name="model">customer_invoice_export</field>
+    <field name="inherit_id" ref="ssi_transaction_mixin.mixin_transaction_view_form" />
+    <field name="mode">primary</field>
+    <field name="arch" type="xml">
+        <data>
+            <xpath expr="//field[@name='user_id']" position="after">
+                <field name="type_id" />
+                <field name="allowed_journal_ids" invisible="1" />
+                <field name="allowed_product_ids" invisible="1" />
+            </xpath>
+            <xpath expr="//group[@name='header_right']" position="inside">
+                <field name="date" />
+                <field name="date_start" />
+                <field name="date_end" />
+                <field name="output_format" />
+            </xpath>
+            <xpath expr="//page[1]" position="before">
+                <page name="invoice" string="Invoices">
+                    <div>
+                        <button
+                                name="action_populate"
+                                string="Populate"
+                                type="object"
+                                class="oe_highlight"
+                                icon="fa-refresh"
+                                attrs="{'invisible':[('state','!=','draft')]}"
+                            />
+                    </div>
+                    <field name="move_ids">
+                        <tree>
+                            <field name="name" />
+                            <field name="partner_id" />
+                            <field name="invoice_date" />
+                            <field name="journal_id" />
+                            <field name="amount_total" />
+                            <field name="payment_state" />
+                        </tree>
+                    </field>
+                </page>
+                <page name="invoice_line" string="Invoice Lines">
+                    <field name="line_ids">
+                        <tree>
+                            <field name="move_id" />
+                            <field name="product_id" />
+                            <field name="quantity" />
+                            <field name="price_subtotal" />
+                        </tree>
+                    </field>
+                </page>
+                <page name="summary" string="Summary">
+                    <field name="summary_ids">
+                        <tree>
+                            <field name="sequence" widget="handle" />
+                            <field name="move_id" />
+                            <field name="partner_id" />
+                            <field name="currency_id" invisible="1" />
+                            <field name="amount_total" sum="Total" />
+                        </tree>
+                    </field>
+                </page>
+                <page name="export_file" string="Export File">
+                    <group name="export_file_1" colspan="4" col="2">
+                        <field name="export_filename" invisible="1" />
+                        <field
+                                name="export_file"
+                                filename="export_filename"
+                                widget="binary"
+                            />
+                    </group>
+                </page>
+            </xpath>
+        </data>
+    </field>
+</record>
+
+<record id="customer_invoice_export_action" model="ir.actions.act_window">
+    <field name="name">Customer Invoice Exports</field>
+    <field name="res_model">customer_invoice_export</field>
+    <field name="view_mode">tree,form</field>
+</record>
+
+<menuitem
+        id="customer_invoice_export_menu"
+        name="Customer Invoice Exports"
+        parent="ssi_financial_accounting.menu_account_receivable"
+        action="customer_invoice_export_action"
+        groups="customer_invoice_export_viewer_group"
+        sequence="35"
+    />
+</odoo>

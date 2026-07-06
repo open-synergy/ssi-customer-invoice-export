@@ -1,0 +1,88 @@
+scenarios:
+  - name: "Create Customer Invoice Export Type"
+    steps:
+      - step: "Create type"
+        action: "create"
+        model: "customer_invoice_export_type"
+        save_as: "ctype"
+        values:
+          name: "Test Export Type"
+          code: "TEXPT001"
+          default_output_format: "csv"
+          journal_selection_method: "manual"
+          product_selection_method: "manual"
+          parser_python_code: "result = []"
+
+      - step: "Assert type created"
+        action: "assert"
+        target: "ctype"
+        asserts:
+          id:
+            type: "value"
+            operator: "is_truthy"
+          name:
+            type: "value"
+            expected: "Test Export Type"
+          default_output_format:
+            type: "value"
+            expected: "csv"
+          journal_selection_method:
+            type: "value"
+            expected: "manual"
+          product_selection_method:
+            type: "value"
+            expected: "manual"
+          file_encoding:
+            type: "value"
+            expected: "utf-8"
+
+  - name: "Edit Customer Invoice Export Type Output Format"
+    steps:
+      - step: "Create type"
+        action: "create"
+        model: "customer_invoice_export_type"
+        save_as: "ctype"
+        values:
+          name: "Editable Export Type"
+          code: "TEXPT002"
+          default_output_format: "csv"
+
+      - step: "Write default_output_format to xlsx"
+        action: "write"
+        target: "ctype"
+        values:
+          default_output_format: "xlsx"
+          xlsx_sheet_name: "Export"
+
+      - step: "Assert output format updated"
+        action: "assert"
+        target: "ctype"
+        asserts:
+          default_output_format:
+            type: "value"
+            expected: "xlsx"
+          xlsx_sheet_name:
+            type: "value"
+            expected: "Export"
+
+  - name: "Delete Customer Invoice Export Type"
+    steps:
+      - step: "Create type"
+        action: "create"
+        model: "customer_invoice_export_type"
+        save_as: "ctype"
+        values:
+          name: "Deletable Export Type"
+          code: "TEXPT003"
+
+      - step: "Delete type"
+        action: "call"
+        target: "ctype"
+        method: "unlink"
+
+      - step: "Verify type deleted"
+        action: "search"
+        model: "customer_invoice_export_type"
+        domain: [["code", "=", "TEXPT003"]]
+        save_as: "result"
+        expect_count: 0

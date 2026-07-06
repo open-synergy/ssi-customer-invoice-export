@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- Copyright 2026 OpenSynergy Indonesia
+     Copyright 2026 PT. Simetri Sinergi Indonesia
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+<odoo>
+<record id="customer_invoice_export_all_access" model="ir.model.access">
+    <field name="name">customer_invoice_export - all</field>
+    <field name="model_id" ref="model_customer_invoice_export" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_write" eval="0" />
+    <field name="perm_create" eval="0" />
+    <field name="perm_unlink" eval="0" />
+</record>
+
+<record id="customer_invoice_export_user_access" model="ir.model.access">
+    <field name="name">customer_invoice_export - user</field>
+    <field name="model_id" ref="model_customer_invoice_export" />
+    <field name="group_id" ref="customer_invoice_export_user_group" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_write" eval="1" />
+    <field name="perm_create" eval="1" />
+    <field name="perm_unlink" eval="1" />
+</record>
+
+<!-- customer_invoice_export.summary - detail line, access via parent's user group -->
+<record id="customer_invoice_export_summary_all_access" model="ir.model.access">
+    <field name="name">customer_invoice_export.summary - all</field>
+    <field name="model_id" ref="model_customer_invoice_export_summary" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_write" eval="0" />
+    <field name="perm_create" eval="0" />
+    <field name="perm_unlink" eval="0" />
+</record>
+
+<record id="customer_invoice_export_summary_user_access" model="ir.model.access">
+    <field name="name">customer_invoice_export.summary - user</field>
+    <field name="model_id" ref="model_customer_invoice_export_summary" />
+    <field name="group_id" ref="customer_invoice_export_user_group" />
+    <field name="perm_read" eval="1" />
+    <field name="perm_write" eval="1" />
+    <field name="perm_create" eval="1" />
+    <field name="perm_unlink" eval="1" />
+</record>
+</odoo>
