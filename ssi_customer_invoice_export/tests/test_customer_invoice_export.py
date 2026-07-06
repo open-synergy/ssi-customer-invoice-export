@@ -43,26 +43,18 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         return account
 
     def _get_sale_journal(self):
-        journal = self.env["account.journal"].search(
-            [("type", "=", "sale"), ("company_id", "=", self.env.company.id)],
-            limit=1,
+        # Always create a dedicated journal rather than reusing/searching an
+        # existing one -- demo data may already contain posted, unpaid
+        # customer invoices in a shared default sale journal, which would
+        # leak into this test's Populate results.
+        return self.env["account.journal"].create(
+            {"name": "Test Sales Journal", "type": "sale", "code": "TSJ"}
         )
-        if not journal:
-            journal = self.env["account.journal"].create(
-                {"name": "Test Sales Journal", "type": "sale", "code": "TSJ"}
-            )
-        return journal
 
     def _get_bank_journal(self):
-        journal = self.env["account.journal"].search(
-            [("type", "=", "bank"), ("company_id", "=", self.env.company.id)],
-            limit=1,
+        return self.env["account.journal"].create(
+            {"name": "Test Bank Journal", "type": "bank", "code": "TBNK"}
         )
-        if not journal:
-            journal = self.env["account.journal"].create(
-                {"name": "Test Bank Journal", "type": "bank", "code": "TBNK"}
-            )
-        return journal
 
     def _create_product(self, name, income_account):
         return self.env["product.product"].create(
@@ -273,6 +265,7 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertTrue(export_doc.summary_ids)
 
         export_doc.action_confirm()
+        export_doc.invalidate_cache()
         self.assertEqual(export_doc.state, "confirm")
 
         export_doc.with_context(queue_job__no_delay=True).action_approve_approval()
@@ -301,7 +294,9 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
             .create({"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"})
         )
         export_doc.action_cancel()
+        export_doc.invalidate_cache()
         self.assertEqual(export_doc.state, "cancel")
 
         export_doc.action_restart()
+        export_doc.invalidate_cache()
         self.assertEqual(export_doc.state, "draft")
