@@ -122,7 +122,8 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
             "product_selection_method": "manual",
             "product_ids": [(6, 0, product_a.ids)],
             "parser_python_code": (
-                "result = [[s.move_id.name, s.amount_total] for s in summary_ids]"
+                "result = [[s.move_ids.mapped('name'), s.amount_total] "
+                "for s in summary_ids]"
             ),
         }
         values.update(extra_values)
@@ -179,7 +180,7 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
             all(line.product_id == product_a for line in export_doc.line_ids)
         )
         self.assertEqual(len(export_doc.summary_ids), 2)
-        summary_1 = export_doc.summary_ids.filtered(lambda s: s.move_id == invoice_1)
+        summary_1 = export_doc.summary_ids.filtered(lambda s: invoice_1 in s.move_ids)
         self.assertEqual(summary_1.amount_total, 100.0)
 
         # date_start filters out invoice_1 (invoice_date 2026-01-10)
@@ -200,6 +201,147 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         )
         export_doc.action_populate()
         first_count = len(export_doc.summary_ids)
+        export_doc.action_populate()
+        self.assertEqual(len(export_doc.summary_ids), first_count)
+
+    # -------------------------------------------------------------------
+    # Grouping Method (BL-0104)
+    # -------------------------------------------------------------------
+
+    def test_default_type_grouping_method_is_invoice(self):
+        ctype = self.env["customer_invoice_export_type"].create(
+            {"name": "Default Grouping Type", "code": "TGRP000"}
+        )
+        self.assertEqual(ctype.grouping_method, "invoice")
+
+    def test_populate_grouping_invoice_one_row_per_invoice(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Grouping Product A", income_account)
+        product_b = self._create_product("Grouping Product B", income_account)
+        partner = self.env["res.partner"].create({"name": "Grouping Partner P1"})
+        ctype = self._create_export_type(journal, product_a, grouping_method="invoice")
+
+        invoice_1 = self._create_invoice(
+            partner, journal, [(product_a, 100.0), (product_b, 20.0)], "2026-01-05"
+        )
+        invoice_2 = self._create_invoice(
+            partner, journal, [(product_a, 150.0), (product_b, 30.0)], "2026-01-10"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+
+        self.assertEqual(len(export_doc.summary_ids), 2)
+        for summary in export_doc.summary_ids:
+            self.assertEqual(len(summary.move_ids), 1)
+            self.assertTrue(
+                all(line.product_id == product_a for line in summary.line_ids)
+            )
+        summary_1 = export_doc.summary_ids.filtered(lambda s: invoice_1 in s.move_ids)
+        self.assertEqual(summary_1.amount_total, 100.0)
+        summary_2 = export_doc.summary_ids.filtered(lambda s: invoice_2 in s.move_ids)
+        self.assertEqual(summary_2.amount_total, 150.0)
+
+    def test_populate_grouping_partner_merges_same_partner_invoices(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Merge Product A", income_account)
+        product_b = self._create_product("Merge Product B", income_account)
+        partner = self.env["res.partner"].create({"name": "Merge Partner P1"})
+        ctype = self._create_export_type(journal, product_a, grouping_method="partner")
+
+        invoice_1 = self._create_invoice(
+            partner, journal, [(product_a, 100.0), (product_b, 20.0)], "2026-01-05"
+        )
+        invoice_2 = self._create_invoice(
+            partner, journal, [(product_a, 150.0), (product_b, 30.0)], "2026-01-10"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        summary = export_doc.summary_ids
+        self.assertEqual(set(summary.move_ids.ids), {invoice_1.id, invoice_2.id})
+        self.assertEqual(summary.partner_id, partner)
+        self.assertEqual(summary.amount_total, 250.0)
+        qualifying_lines = (invoice_1 + invoice_2).invoice_line_ids.filtered(
+            lambda line: line.product_id == product_a
+        )
+        self.assertEqual(set(summary.line_ids.ids), set(qualifying_lines.ids))
+
+    def test_populate_grouping_partner_does_not_merge_different_partners(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Distinct Product A", income_account)
+        partner_1 = self.env["res.partner"].create({"name": "Distinct Partner P1"})
+        partner_2 = self.env["res.partner"].create({"name": "Distinct Partner P2"})
+        ctype = self._create_export_type(journal, product_a, grouping_method="partner")
+
+        invoice_1 = self._create_invoice(
+            partner_1, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+        invoice_2 = self._create_invoice(
+            partner_2, journal, [(product_a, 200.0)], "2026-01-06"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+
+        self.assertEqual(len(export_doc.summary_ids), 2)
+        for summary in export_doc.summary_ids:
+            self.assertEqual(len(summary.move_ids), 1)
+        self.assertEqual(
+            set(export_doc.summary_ids.mapped("partner_id").ids),
+            {partner_1.id, partner_2.id},
+        )
+        self.assertEqual(
+            set(export_doc.summary_ids.mapped("move_ids").ids),
+            {invoice_1.id, invoice_2.id},
+        )
+
+    def test_populate_grouping_partner_skips_invoice_without_qualifying_lines(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Skip Product A", income_account)
+        product_b = self._create_product("Skip Product B", income_account)
+        partner = self.env["res.partner"].create({"name": "Skip Partner P1"})
+        ctype = self._create_export_type(journal, product_a, grouping_method="partner")
+
+        non_qualifying_invoice = self._create_invoice(
+            partner, journal, [(product_b, 75.0)], "2026-01-05"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+
+        self.assertFalse(export_doc.summary_ids)
+        self.assertIn(non_qualifying_invoice, export_doc.move_ids)
+
+    def test_populate_grouping_partner_idempotent(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Idempotent Partner Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "Idempotent Partner P1"})
+        ctype = self._create_export_type(journal, product_a, grouping_method="partner")
+        self._create_invoice(partner, journal, [(product_a, 100.0)], "2026-01-01")
+        self._create_invoice(partner, journal, [(product_a, 200.0)], "2026-01-02")
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+        first_count = len(export_doc.summary_ids)
+        self.assertEqual(first_count, 1)
         export_doc.action_populate()
         self.assertEqual(len(export_doc.summary_ids), first_count)
 

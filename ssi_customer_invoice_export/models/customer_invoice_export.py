@@ -26,9 +26,11 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
     Represents a document that selects a set of unpaid customer invoices
     (limited to the journals allowed by its Type and, optionally, to a
     date range), keeps only the invoice lines matching the Type's product
-    criteria, and builds one summary row per qualifying invoice. On
-    completion the document generates a CSV/XLSX/TXT file -- via the
-    Type's Python parser code -- for upload to a banking service.
+    criteria, and builds one summary row per export file row -- one row
+    per qualifying invoice or one row per partner, depending on the
+    Type's Grouping Method. On completion the document generates a
+    CSV/XLSX/TXT file -- via the Type's Python parser code -- for upload
+    to a banking service.
 
     Lifecycle: draft -> confirm -> queue_done -> done
     Cancellation: any non-done state -> cancel
@@ -195,9 +197,10 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         inverse_name="export_id",
         readonly=True,
         help=(
-            "One row per qualifying invoice, aggregating its qualifying "
-            "lines. Derived by the Populate button; consumed by the "
-            "Parser Python Code when generating the export file."
+            "One row per export file row -- per invoice or per partner, "
+            "depending on the Type's Grouping Method -- aggregating its "
+            "qualifying lines. Derived by the Populate button; consumed "
+            "by the Parser Python Code when generating the export file."
         ),
     )
     export_file = fields.Binary(
@@ -270,16 +273,39 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         self.line_ids = [(6, 0, all_qualifying_ids)]
 
         self.summary_ids.unlink()
-        sequence = 5
-        summary_vals = []
+        groups = {}
         for move in moves:
             qualifying = qualifying_by_move.get(move.id)
             if not qualifying:
                 continue
-            summary_vals.append(self._prepare_summary_data(move, qualifying, sequence))
+            key = self._get_summary_grouping_key(move)
+            if key not in groups:
+                groups[key] = {
+                    "moves": self.env["account.move"],
+                    "lines": self.env["account.move.line"],
+                }
+            groups[key]["moves"] |= move
+            groups[key]["lines"] |= qualifying
+
+        sequence = 5
+        summary_vals = []
+        for group in groups.values():
+            summary_vals.append(
+                self._prepare_summary_data(group["moves"], group["lines"], sequence)
+            )
             sequence += 5
         if summary_vals:
             self.env["customer_invoice_export.summary"].create(summary_vals)
+
+    def _get_summary_grouping_key(self, move):
+        """Key deciding which moves share one export row.
+
+        Override in a glue module to group by another criterion.
+        """
+        self.ensure_one()
+        if self.type_id.grouping_method == "partner":
+            return ("partner", move.partner_id.id)
+        return ("move", move.id)
 
     def _prepare_invoice_domain(self):
         self.ensure_one()
@@ -302,12 +328,14 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
             and line.product_id in self.allowed_product_ids
         )
 
-    def _prepare_summary_data(self, move, qualifying_lines, sequence):
+    def _prepare_summary_data(self, moves, qualifying_lines, sequence):
         self.ensure_one()
         return {
             "export_id": self.id,
             "sequence": sequence,
-            "move_id": move.id,
+            "move_ids": [(6, 0, moves.ids)],
+            "partner_id": moves[0].partner_id.id,
+            "currency_id": moves[0].currency_id.id,
             "line_ids": [(6, 0, qualifying_lines.ids)],
         }
 

@@ -7,9 +7,11 @@ from odoo import api, fields, models
 
 class CustomerInvoiceExportSummary(models.Model):
     """
-    One row per customer invoice qualifying for a Customer Invoice Export
-    document, aggregating the invoice lines that matched the export Type's
-    product criteria. Consumed by the Type's Parser Python Code when
+    One row of the exported file for a Customer Invoice Export document,
+    aggregating the invoice lines that matched the export Type's product
+    criteria. Depending on the Type's Grouping Method, one row represents
+    either a single customer invoice or all qualifying invoices of a
+    single partner. Consumed by the Type's Parser Python Code when
     generating the export file.
     """
 
@@ -30,28 +32,26 @@ class CustomerInvoiceExportSummary(models.Model):
         default=5,
         help="Row order among the summary lines of the same export document.",
     )
-    move_id = fields.Many2one(
-        string="Invoice",
+    move_ids = fields.Many2many(
+        string="Invoices",
         comodel_name="account.move",
-        required=True,
-        ondelete="cascade",
-        help="Customer invoice this summary row aggregates.",
+        relation="rel_cust_inv_export_summary_2_move",
+        column1="summary_id",
+        column2="move_id",
+        help="Customer invoice(s) aggregated into this export row.",
     )
     partner_id = fields.Many2one(
         string="Partner",
         comodel_name="res.partner",
-        related="move_id.partner_id",
-        store=True,
-        compute_sudo=True,
-        help="Customer derived from the linked invoice.",
+        required=True,
+        index=True,
+        ondelete="restrict",
+        help="Customer this summary row was aggregated for.",
     )
     currency_id = fields.Many2one(
         string="Currency",
         comodel_name="res.currency",
-        related="move_id.currency_id",
-        store=True,
-        compute_sudo=True,
-        help="Currency of the linked invoice.",
+        help="Currency of the aggregated invoice(s), used to display Amount Total.",
     )
     line_ids = fields.Many2many(
         string="Invoice Lines",
