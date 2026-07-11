@@ -281,7 +281,7 @@ msgstr ""
 
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_summary__currency_id
-msgid "Currency of the linked invoice."
+msgid "Currency of the aggregated invoice(s), used to display Amount Total."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
@@ -315,13 +315,8 @@ msgid "Customer Invoice Exports"
 msgstr ""
 
 #. module: ssi_customer_invoice_export
-#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_summary__partner_id
-msgid "Customer derived from the linked invoice."
-msgstr ""
-
-#. module: ssi_customer_invoice_export
-#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_summary__move_id
-msgid "Customer invoice this summary row aggregates."
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_summary__move_ids
+msgid "Customer invoice(s) aggregated into this export row."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
@@ -329,6 +324,11 @@ msgstr ""
 msgid ""
 "Customer invoices in scope of this export. Automatically filled by the "
 "Populate button; can be manually adjusted while in Draft."
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_summary__partner_id
+msgid "Customer this summary row was aggregated for."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
@@ -355,6 +355,16 @@ msgstr ""
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_type__default_output_format
 msgid "Default Output Format"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_type__grouping_method
+msgid ""
+"Determines what one summary row -- and therefore one row of the exported "
+"file -- represents. One Row per Invoice: each qualifying invoice becomes its"
+" own row. One Row per Partner: all qualifying invoices of the same partner "
+"are merged into a single row, as required by bank formats keyed on a per-"
+"customer virtual account."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
@@ -472,6 +482,11 @@ msgid "Group By"
 msgstr ""
 
 #. module: ssi_customer_invoice_export
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_type__grouping_method
+msgid "Grouping Method"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__id
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_summary__id
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_type__id
@@ -505,11 +520,6 @@ msgid "If checked, some messages have a delivery error."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
-#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_summary__move_id
-msgid "Invoice"
-msgstr ""
-
-#. module: ssi_customer_invoice_export
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__line_ids
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_summary__line_ids
 #: model_terms:ir.ui.view,arch_db:ssi_customer_invoice_export.customer_invoice_export_view_form
@@ -525,6 +535,7 @@ msgstr ""
 
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__move_ids
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_summary__move_ids
 #: model_terms:ir.ui.view,arch_db:ssi_customer_invoice_export.customer_invoice_export_view_form
 msgid "Invoices"
 msgstr ""
@@ -758,11 +769,22 @@ msgid "Number of unread messages"
 msgstr ""
 
 #. module: ssi_customer_invoice_export
+#: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__grouping_method__invoice
+msgid "One Row per Invoice"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__grouping_method__partner
+msgid "One Row per Partner"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
 #: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export__summary_ids
 msgid ""
-"One row per qualifying invoice, aggregating its qualifying lines. Derived by"
-" the Populate button; consumed by the Parser Python Code when generating the"
-" export file."
+"One row per export file row -- per invoice or per partner, depending on the "
+"Type's Grouping Method -- aggregating its qualifying lines. Derived by the "
+"Populate button; consumed by the Parser Python Code when generating the "
+"export file."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
@@ -844,13 +866,14 @@ msgid ""
 "Available in the local scope:\n"
 "* env -- the Odoo environment\n"
 "* document -- the customer_invoice_export record being generated\n"
-"* summary_ids -- the document's summary lines (one per invoice)\n"
+"* summary_ids -- the document's summary lines (one per export row; per\n"
+"  invoice or per partner, depending on the Type's Grouping Method)\n"
 "* move_ids -- the document's selected customer invoices\n"
 "* line_ids -- the document's selected invoice lines\n"
 "\n"
 "Example:\n"
 "result = [\n"
-"    [s.move_id.name, s.partner_id.name, s.amount_total]\n"
+"    [s.move_ids.mapped(\"name\"), s.partner_id.name, s.amount_total]\n"
 "    for s in summary_ids\n"
 "]"
 msgstr ""
