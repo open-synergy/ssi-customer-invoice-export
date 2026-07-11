@@ -100,7 +100,8 @@ class TestCustomerInvoiceExportOperatingUnit(YamlTransactionCase):
             "product_selection_method": "manual",
             "product_ids": [(6, 0, product.ids)],
             "parser_python_code": (
-                "result = [[s.move_id.name, s.amount_total] for s in summary_ids]"
+                "result = [[s.move_ids.mapped('name'), s.amount_total] "
+                "for s in summary_ids]"
             ),
         }
         values.update(extra_values)

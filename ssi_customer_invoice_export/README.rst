@@ -17,15 +17,29 @@ export files depending on the product on each line.
   criteria and product criteria (manual / domain / Python code) that
   determine which invoices and invoice lines are eligible, the default
   output format (CSV/XLSX/TXT) and its options (encoding, delimiter,
-  sheet name, field separator), and the Parser Python Code that turns the
+  sheet name, field separator), the Grouping Method that determines what
+  one export row represents, and the Parser Python Code that turns the
   selected data into the rows of the export file.
 * **Customer Invoice Export** (transaction): select a Type and, optionally,
   a date range, then use **Populate** to auto-select unpaid customer
   invoices (limited to the Type's allowed journals and, if given, the date
   range) and keep only the invoice lines matching the Type's product
-  criteria. One summary row is built per qualifying invoice. The workflow
-  (Draft -> Confirm -> Queue to Done -> Done) generates the export file in
-  the background once approved.
+  criteria. One summary row is built per export row, according to the
+  Type's Grouping Method:
+
+  * *One Row per Invoice* (default): each qualifying invoice becomes its
+    own summary row.
+  * *One Row per Partner*: all qualifying invoices of the same partner are
+    merged into a single summary row -- required by bank formats keyed on
+    a per-customer virtual account, where a customer can have more than
+    one invoice in the same period.
+
+  The workflow (Draft -> Confirm -> Queue to Done -> Done) generates the
+  export file in the background once approved.
+
+  Summary rows expose ``move_ids`` (the invoice(s) aggregated into that
+  row) instead of a single invoice. Parser Python Code must read
+  ``s.move_ids`` (a recordset), not ``s.move_id``.
 
 
 Installation

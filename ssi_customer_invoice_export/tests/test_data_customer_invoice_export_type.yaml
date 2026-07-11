@@ -35,6 +35,9 @@ scenarios:
           file_encoding:
             type: "value"
             expected: "utf-8"
+          grouping_method:
+            type: "value"
+            expected: "invoice"
 
   - name: "Edit Customer Invoice Export Type Output Format"
     steps:
@@ -53,6 +56,7 @@ scenarios:
         values:
           default_output_format: "xlsx"
           xlsx_sheet_name: "Export"
+          grouping_method: "partner"
 
       - step: "Assert output format updated"
         action: "assert"
@@ -64,6 +68,9 @@ scenarios:
           xlsx_sheet_name:
             type: "value"
             expected: "Export"
+          grouping_method:
+            type: "value"
+            expected: "partner"
 
   - name: "Delete Customer Invoice Export Type"
     steps:

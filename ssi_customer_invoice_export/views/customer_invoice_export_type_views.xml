@@ -45,6 +45,7 @@
                 <page name="output_option" string="Output Option">
                     <group name="output_option_1" colspan="4" col="2">
                         <field name="default_output_format" />
+                        <field name="grouping_method" />
                         <field name="file_encoding" />
                         <field name="csv_delimiter" />
                         <field name="csv_quotechar" />

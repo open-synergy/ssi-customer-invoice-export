@@ -10,13 +10,14 @@ rows (each row a list of cell values) to be written to the export file.
 Available in the local scope:
 * env -- the Odoo environment
 * document -- the customer_invoice_export record being generated
-* summary_ids -- the document's summary lines (one per invoice)
+* summary_ids -- the document's summary lines (one per export row; per
+  invoice or per partner, depending on the Type's Grouping Method)
 * move_ids -- the document's selected customer invoices
 * line_ids -- the document's selected invoice lines
 
 Example:
 result = [
-    [s.move_id.name, s.partner_id.name, s.amount_total]
+    [s.move_ids.mapped("name"), s.partner_id.name, s.amount_total]
     for s in summary_ids
 ]"""
 
@@ -45,6 +46,23 @@ class CustomerInvoiceExportType(models.Model):
         help=(
             "File format automatically proposed on a new Customer Invoice "
             "Export document created with this type."
+        ),
+    )
+    grouping_method = fields.Selection(
+        string="Grouping Method",
+        selection=[
+            ("invoice", "One Row per Invoice"),
+            ("partner", "One Row per Partner"),
+        ],
+        default="invoice",
+        required=True,
+        help=(
+            "Determines what one summary row -- and therefore one row of "
+            "the exported file -- represents. One Row per Invoice: each "
+            "qualifying invoice becomes its own row. One Row per Partner: "
+            "all qualifying invoices of the same partner are merged into "
+            "a single row, as required by bank formats keyed on a "
+            "per-customer virtual account."
         ),
     )
 
