@@ -70,6 +70,7 @@
             <xpath expr="//field[@name='user_id']" position="after">
                 <field name="type_id" />
                 <field name="allowed_journal_ids" invisible="1" />
+                <field name="allowed_partner_ids" invisible="1" />
                 <field name="allowed_product_ids" invisible="1" />
             </xpath>
             <xpath expr="//group[@name='header_right']" position="inside">

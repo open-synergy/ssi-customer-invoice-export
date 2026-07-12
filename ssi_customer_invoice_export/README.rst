@@ -14,18 +14,18 @@ common case where a single invoice's lines must be split across several
 export files depending on the product on each line.
 
 * **Customer Invoice Export Type** (configuration): defines the journal
-  criteria and product criteria (manual / domain / Python code) that
-  determine which invoices and invoice lines are eligible, the default
-  output format (CSV/XLSX/TXT) and its options (encoding, delimiter,
-  sheet name, field separator), the Grouping Method that determines what
-  one export row represents, and the Parser Python Code that turns the
-  selected data into the rows of the export file.
+  criteria, partner criteria, and product criteria (manual / domain /
+  Python code) that determine which invoices and invoice lines are
+  eligible, the default output format (CSV/XLSX/TXT) and its options
+  (encoding, delimiter, sheet name, field separator), the Grouping Method
+  that determines what one export row represents, and the Parser Python
+  Code that turns the selected data into the rows of the export file.
 * **Customer Invoice Export** (transaction): select a Type and, optionally,
   a date range, then use **Populate** to auto-select unpaid customer
-  invoices (limited to the Type's allowed journals and, if given, the date
-  range) and keep only the invoice lines matching the Type's product
-  criteria. One summary row is built per export row, according to the
-  Type's Grouping Method:
+  invoices (limited to the Type's allowed journals, the Type's allowed
+  partners, and, if given, the date range) and keep only the invoice lines
+  matching the Type's product criteria. One summary row is built per export
+  row, according to the Type's Grouping Method:
 
   * *One Row per Invoice* (default): each qualifying invoice becomes its
     own summary row.

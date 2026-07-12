@@ -157,6 +157,14 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         compute_sudo=True,
         help="Journals allowed to be selected, as configured on the Type.",
     )
+    allowed_partner_ids = fields.Many2many(
+        string="Allowed Partners",
+        comodel_name="res.partner",
+        compute="_compute_allowed_partner_ids",
+        store=False,
+        compute_sudo=True,
+        help="Partners allowed to be selected, as configured on the Type.",
+    )
     allowed_product_ids = fields.Many2many(
         string="Allowed Products",
         comodel_name="product.product",
@@ -229,6 +237,20 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
                     python_code=record.type_id.journal_python_code,
                 )
             record.allowed_journal_ids = result
+
+    @api.depends("type_id")
+    def _compute_allowed_partner_ids(self):
+        for record in self:
+            result = False
+            if record.type_id:
+                result = record._m2o_configurator_get_filter(
+                    object_name="res.partner",
+                    method_selection=record.type_id.partner_selection_method,
+                    manual_recordset=record.type_id.partner_ids,
+                    domain=record.type_id.partner_domain,
+                    python_code=record.type_id.partner_python_code,
+                )
+            record.allowed_partner_ids = result
 
     @api.depends("type_id")
     def _compute_allowed_product_ids(self):
@@ -314,6 +336,7 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
             ("state", "=", "posted"),
             ("payment_state", "in", ("not_paid", "partial")),
             ("journal_id", "in", self.allowed_journal_ids.ids),
+            ("partner_id", "in", self.allowed_partner_ids.ids),
         ]
         if self.date_start:
             domain.append(("invoice_date", ">=", self.date_start))

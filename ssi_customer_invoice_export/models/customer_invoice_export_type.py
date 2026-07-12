@@ -112,6 +112,51 @@ class CustomerInvoiceExportType(models.Model):
         ),
     )
 
+    # --- Partner criteria (many2one configurator) ---
+
+    partner_selection_method = fields.Selection(
+        string="Partner Selection Method",
+        selection=[
+            ("manual", "Manual"),
+            ("domain", "Domain"),
+            ("code", "Python Code"),
+        ],
+        default="domain",
+        required=True,
+        help=(
+            "Method used to determine which partners are allowed when "
+            "selecting invoices on an export document of this type."
+        ),
+    )
+    partner_ids = fields.Many2many(
+        string="Partners",
+        comodel_name="res.partner",
+        relation="rel_cust_inv_export_type_2_partner",
+        column1="type_id",
+        column2="partner_id",
+        help=(
+            "Manually selected list of allowed partners. Used when Partner "
+            "Selection Method = Manual."
+        ),
+    )
+    partner_domain = fields.Text(
+        string="Partner Domain",
+        default="[]",
+        help=(
+            "Domain expression evaluated against res.partner to determine "
+            "the allowed partners. Used when Partner Selection Method = "
+            "Domain."
+        ),
+    )
+    partner_python_code = fields.Text(
+        string="Partner Python Code",
+        default="result = []",
+        help=(
+            "Python code that must set the `result` variable to a recordset "
+            "of res.partner. Used when Partner Selection Method = Python Code."
+        ),
+    )
+
     # --- Product criteria (many2one configurator) ---
 
     product_selection_method = fields.Selection(

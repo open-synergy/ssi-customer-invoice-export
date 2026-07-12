@@ -32,12 +32,90 @@ scenarios:
           product_selection_method:
             type: "value"
             expected: "manual"
+          partner_selection_method:
+            type: "value"
+            expected: "domain"
+          partner_domain:
+            type: "value"
+            expected: "[]"
+          partner_python_code:
+            type: "value"
+            expected: "result = []"
           file_encoding:
             type: "value"
             expected: "utf-8"
           grouping_method:
             type: "value"
             expected: "invoice"
+
+  - name: "Customer Invoice Export Type With Manual Partner Criteria"
+    steps:
+      - step: "Create type restricted to a single partner"
+        action: "create"
+        model: "customer_invoice_export_type"
+        save_as: "ctype"
+        values:
+          name: "Partner Criteria Export Type"
+          code: "TEXPT004"
+          partner_selection_method: "manual"
+          partner_ids:
+            - - 6
+              - 0
+              - - "REF: base.res_partner_2"
+
+      - step: "Assert partner criteria stored"
+        action: "assert"
+        target: "ctype"
+        asserts:
+          partner_selection_method:
+            type: "value"
+            expected: "manual"
+          partner_ids:
+            type: "m2m"
+            check: "exact_xml_ids"
+            expected_xml_ids:
+              - "base.res_partner_2"
+
+  - name: "Edit Customer Invoice Export Type Partner Selection Method"
+    steps:
+      - step: "Create type with default partner selection method"
+        action: "create"
+        model: "customer_invoice_export_type"
+        save_as: "ctype"
+        values:
+          name: "Editable Partner Criteria Type"
+          code: "TEXPT005"
+
+      - step: "Assert default partner selection method"
+        action: "assert"
+        target: "ctype"
+        asserts:
+          partner_selection_method:
+            type: "value"
+            expected: "domain"
+
+      - step: "Write partner selection method to manual"
+        action: "write"
+        target: "ctype"
+        values:
+          partner_selection_method: "manual"
+          partner_ids:
+            - - 6
+              - 0
+              - - "REF: base.res_partner_3"
+
+      - step: "Assert partner selection method updated"
+        action: "assert"
+        target: "ctype"
+        asserts:
+          partner_selection_method:
+            type: "value"
+            expected: "manual"
+          partner_ids:
+            type: "m2m"
+            check: "exact_xml_ids"
+            expected_xml_ids:
+              - "base.res_partner_3"
 
   - name: "Edit Customer Invoice Export Type Output Format"
     steps:
