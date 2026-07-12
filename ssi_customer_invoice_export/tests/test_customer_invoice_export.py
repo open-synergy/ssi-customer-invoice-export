@@ -424,6 +424,50 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         )
         self.assertTrue(attachment)
 
+    # -------------------------------------------------------------------
+    # Form view arch (BL-0105) -- move_ids inline tree must declare
+    # "state" so the web client can evaluate readonly modifiers deriving
+    # from account.move fields declared with states={'draft': [...]}.
+    # -------------------------------------------------------------------
+
+    def test_form_view_move_ids_subview_declares_state(self):
+        view = self.env.ref(
+            "ssi_customer_invoice_export.customer_invoice_export_view_form"
+        )
+        result = self.env["customer_invoice_export"].fields_view_get(
+            view_id=view.id, view_type="form"
+        )
+        move_ids_subview_fields = result["fields"]["move_ids"]["views"]["tree"][
+            "fields"
+        ]
+        self.assertIn("state", move_ids_subview_fields)
+
+    def test_form_view_renders_with_populated_moves(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("FormView Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "FormView Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        self._create_invoice(partner, journal, [(product_a, 100.0)], "2026-01-10")
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+        self.assertTrue(export_doc.move_ids)
+
+        export_doc.move_ids.read(
+            [
+                "state",
+                "name",
+                "partner_id",
+                "invoice_date",
+                "journal_id",
+                "amount_total",
+                "payment_state",
+            ]
+        )
+
     def test_cancel_from_draft_and_restart(self):
         journal = self._get_sale_journal()
         income_account = self._get_income_account()

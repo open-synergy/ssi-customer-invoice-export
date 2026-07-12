@@ -92,6 +92,7 @@
                     </div>
                     <field name="move_ids">
                         <tree>
+                            <field name="state" invisible="1" />
                             <field name="name" />
                             <field name="partner_id" />
                             <field name="invoice_date" />
