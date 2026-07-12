@@ -74,6 +74,27 @@
                             />
                     </group>
                 </page>
+                <page name="partner_config" string="Partner Criteria">
+                    <group name="partner_config_1" colspan="4" col="2">
+                        <field name="partner_selection_method" />
+                        <field
+                                name="partner_ids"
+                                widget="many2many_tags"
+                                attrs="{'invisible':[('partner_selection_method','!=','manual')]}"
+                            />
+                        <field
+                                name="partner_domain"
+                                widget="domain"
+                                options="{'model': 'res.partner', 'in_dialog': True}"
+                                attrs="{'invisible':[('partner_selection_method','!=','domain')]}"
+                            />
+                        <field
+                                name="partner_python_code"
+                                widget="ace"
+                                attrs="{'invisible':[('partner_selection_method','!=','code')]}"
+                            />
+                    </group>
+                </page>
                 <page name="product_config" string="Product Criteria">
                     <group name="product_config_1" colspan="4" col="2">
                         <field name="product_selection_method" />

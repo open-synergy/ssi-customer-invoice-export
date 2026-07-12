@@ -346,6 +346,98 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(len(export_doc.summary_ids), first_count)
 
     # -------------------------------------------------------------------
+    # Partner Criteria (BL-0128)
+    # -------------------------------------------------------------------
+
+    def test_default_type_partner_criteria(self):
+        ctype = self.env["customer_invoice_export_type"].create(
+            {"name": "Default Partner Criteria Type", "code": "TPTN000"}
+        )
+        self.assertEqual(ctype.partner_selection_method, "domain")
+        self.assertEqual(ctype.partner_domain, "[]")
+        self.assertEqual(ctype.partner_python_code, "result = []")
+
+    def test_allowed_partner_ids_computed_from_type(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Allowed Partner Product A", income_account)
+        partner_1 = self.env["res.partner"].create({"name": "Allowed Partner P1"})
+        partner_2 = self.env["res.partner"].create({"name": "Allowed Partner P2"})
+        ctype = self._create_export_type(
+            journal,
+            product_a,
+            partner_selection_method="manual",
+            partner_ids=[(6, 0, partner_1.ids)],
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        self.assertEqual(export_doc.allowed_partner_ids, partner_1)
+        self.assertNotIn(partner_2, export_doc.allowed_partner_ids)
+
+        ctype.partner_ids = [(6, 0, (partner_1 + partner_2).ids)]
+        export_doc.invalidate_cache()
+        self.assertEqual(
+            set(export_doc.allowed_partner_ids.ids), {partner_1.id, partner_2.id}
+        )
+
+    def test_populate_filters_by_partner(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Partner Filter Product A", income_account)
+        partner_1 = self.env["res.partner"].create({"name": "Partner Filter P1"})
+        partner_2 = self.env["res.partner"].create({"name": "Partner Filter P2"})
+        ctype = self._create_export_type(
+            journal,
+            product_a,
+            partner_selection_method="manual",
+            partner_ids=[(6, 0, partner_1.ids)],
+        )
+
+        invoice_allowed = self._create_invoice(
+            partner_1, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+        invoice_excluded = self._create_invoice(
+            partner_2, journal, [(product_a, 200.0)], "2026-01-06"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+
+        self.assertEqual(export_doc.move_ids, invoice_allowed)
+        self.assertNotIn(invoice_excluded, export_doc.move_ids)
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        self.assertEqual(export_doc.summary_ids.partner_id, partner_1)
+
+    def test_populate_partner_domain_allows_every_partner(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Partner Domain Product A", income_account)
+        partner_1 = self.env["res.partner"].create({"name": "Partner Domain P1"})
+        partner_2 = self.env["res.partner"].create({"name": "Partner Domain P2"})
+        # Default partner criteria (domain "[]") must keep the pre-BL-0128
+        # behaviour: every partner qualifies.
+        ctype = self._create_export_type(journal, product_a)
+        self.assertEqual(ctype.partner_selection_method, "domain")
+
+        invoice_1 = self._create_invoice(
+            partner_1, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+        invoice_2 = self._create_invoice(
+            partner_2, journal, [(product_a, 200.0)], "2026-01-06"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+
+        self.assertEqual(set(export_doc.move_ids.ids), {invoice_1.id, invoice_2.id})
+
+    # -------------------------------------------------------------------
     # Render output (CSV / TXT) -- unit-level, no queue involved
     # -------------------------------------------------------------------
 
