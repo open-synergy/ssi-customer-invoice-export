@@ -90,6 +90,11 @@ msgid "Allowed Journals"
 msgstr ""
 
 #. module: ssi_customer_invoice_export
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__allowed_partner_ids
+msgid "Allowed Partners"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__allowed_policy_template_ids
 msgid "Allowed Policy Templates"
 msgstr ""
@@ -376,6 +381,7 @@ msgstr ""
 
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__journal_selection_method__domain
+#: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__partner_selection_method__domain
 #: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__product_selection_method__domain
 msgid "Domain"
 msgstr ""
@@ -392,6 +398,13 @@ msgstr ""
 msgid ""
 "Domain expression evaluated against product.product to determine the allowed"
 " products. Used when Product Selection Method = Domain."
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_domain
+msgid ""
+"Domain expression evaluated against res.partner to determine the allowed "
+"partners. Used when Partner Selection Method = Domain."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
@@ -612,6 +625,7 @@ msgstr ""
 
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__journal_selection_method__manual
+#: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__partner_selection_method__manual
 #: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__product_selection_method__manual
 msgid "Manual"
 msgstr ""
@@ -628,6 +642,13 @@ msgstr ""
 #: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_type__journal_ids
 msgid ""
 "Manually selected list of allowed journals. Used when Journal Selection "
+"Method = Manual."
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_ids
+msgid ""
+"Manually selected list of allowed partners. Used when Partner Selection "
 "Method = Manual."
 msgstr ""
 
@@ -676,6 +697,13 @@ msgstr ""
 #: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_type__journal_selection_method
 msgid ""
 "Method used to determine which journals are allowed when selecting invoices "
+"on an export document of this type."
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_selection_method
+msgid ""
+"Method used to determine which partners are allowed when selecting invoices "
 "on an export document of this type."
 msgstr ""
 
@@ -813,6 +841,36 @@ msgid "Partner"
 msgstr ""
 
 #. module: ssi_customer_invoice_export
+#: model_terms:ir.ui.view,arch_db:ssi_customer_invoice_export.customer_invoice_export_type_view_form
+msgid "Partner Criteria"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_domain
+msgid "Partner Domain"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_python_code
+msgid "Partner Python Code"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_selection_method
+msgid "Partner Selection Method"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_ids
+msgid "Partners"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export__allowed_partner_ids
+msgid "Partners allowed to be selected, as configured on the Type."
+msgstr ""
+
+#. module: ssi_customer_invoice_export
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__policy_template_id
 msgid "Policy Template"
 msgstr ""
@@ -854,6 +912,7 @@ msgstr ""
 
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__journal_selection_method__code
+#: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__partner_selection_method__code
 #: model:ir.model.fields.selection,name:ssi_customer_invoice_export.selection__customer_invoice_export_type__product_selection_method__code
 msgid "Python Code"
 msgstr ""
@@ -890,6 +949,13 @@ msgstr ""
 msgid ""
 "Python code that must set the `result` variable to a recordset of "
 "product.product. Used when Product Selection Method = Python Code."
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export_type__partner_python_code
+msgid ""
+"Python code that must set the `result` variable to a recordset of "
+"res.partner. Used when Partner Selection Method = Python Code."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
