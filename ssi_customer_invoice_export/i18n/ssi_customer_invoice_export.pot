@@ -1021,6 +1021,21 @@ msgid "Sequence"
 msgstr ""
 
 #. module: ssi_customer_invoice_export
+#: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export__source_move_ids
+msgid ""
+"Set by a glue module to point this document directly at the exact moves it "
+"must export, bypassing the standard invoice-shaped criteria (move type, "
+"payment state, journal, partner) applied by the Populate button when this "
+"field is empty. Used for source models whose moves are never shaped like a "
+"standard Odoo customer invoice (e.g. move_type 'entry')."
+msgstr ""
+
+#. module: ssi_customer_invoice_export
+#: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__source_move_ids
+msgid "Source Invoices"
+msgstr ""
+
+#. module: ssi_customer_invoice_export
 #: model:ir.model.fields,field_description:ssi_customer_invoice_export.field_customer_invoice_export__state
 msgid "State"
 msgstr ""
