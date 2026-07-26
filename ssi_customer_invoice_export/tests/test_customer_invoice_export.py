@@ -129,6 +129,86 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         values.update(extra_values)
         return self.env["customer_invoice_export_type"].create(values)
 
+    def _create_minimal_export_type(self, **extra_values):
+        # No journal/product/partner criteria needed -- used for
+        # source_move_ids scenarios, where those criteria are bypassed
+        # entirely by _prepare_invoice_domain.
+        values = {
+            "name": "Test Minimal Export Type",
+            "code": "TMIN001",
+            "default_output_format": "csv",
+            "parser_python_code": "result = []",
+        }
+        values.update(extra_values)
+        return self.env["customer_invoice_export_type"].create(values)
+
+    def _get_temp_account(self):
+        account_type = self.env.ref("account.data_account_type_current_assets")
+        account = self.env["account.account"].search(
+            [
+                ("user_type_id", "=", account_type.id),
+                ("company_id", "=", self.env.company.id),
+            ],
+            limit=1,
+        )
+        if not account:
+            account = self.env["account.account"].create(
+                {
+                    "name": "Test Temp Account",
+                    "code": "TESTTMP01",
+                    "user_type_id": account_type.id,
+                    "company_id": self.env.company.id,
+                }
+            )
+        return account
+
+    def _get_general_journal(self):
+        return self.env["account.journal"].create(
+            {"name": "Test General Journal", "type": "general", "code": "TGEN"}
+        )
+
+    def _create_journal_entry(self, journal, amount, date, post=True):
+        # A move_type="entry" move -- never shaped like a standard Odoo
+        # customer invoice: no partner_id/invoice_date/invoice_line_ids
+        # semantics, and payment_state is always False (core
+        # account_move.py: "not_paid" only applies when move_type !=
+        # "entry"). Used to prove _prepare_invoice_domain's
+        # source_move_ids branch bypasses the invoice-shaped criteria.
+        income_account = self._get_income_account()
+        temp_account = self._get_temp_account()
+        move = self.env["account.move"].create(
+            {
+                "move_type": "entry",
+                "journal_id": journal.id,
+                "date": date,
+                "line_ids": [
+                    (
+                        0,
+                        0,
+                        {
+                            "account_id": income_account.id,
+                            "name": "Credit Line",
+                            "debit": 0.0,
+                            "credit": amount,
+                        },
+                    ),
+                    (
+                        0,
+                        0,
+                        {
+                            "account_id": temp_account.id,
+                            "name": "Debit Line",
+                            "debit": amount,
+                            "credit": 0.0,
+                        },
+                    ),
+                ],
+            }
+        )
+        if post:
+            move.action_post()
+        return move
+
     # -------------------------------------------------------------------
     # Onchange (Form API)
     # -------------------------------------------------------------------
@@ -203,6 +283,70 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         first_count = len(export_doc.summary_ids)
         export_doc.action_populate()
         self.assertEqual(len(export_doc.summary_ids), first_count)
+
+    # -------------------------------------------------------------------
+    # source_move_ids (issue #16) -- bypasses the invoice-shaped criteria
+    # in _prepare_invoice_domain when set.
+    # -------------------------------------------------------------------
+
+    def test_populate_with_source_move_ids_bypasses_invoice_criteria(self):
+        journal = self._get_general_journal()
+        ctype = self._create_minimal_export_type()
+        move = self._create_journal_entry(journal, 100.0, "2026-01-10")
+        self.assertEqual(move.move_type, "entry")
+        self.assertEqual(move.state, "posted")
+        self.assertFalse(move.payment_state)
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {
+                "type_id": ctype.id,
+                "date": "2026-03-01",
+                "output_format": "csv",
+                "source_move_ids": [(6, 0, move.ids)],
+            }
+        )
+        export_doc.action_populate()
+
+        self.assertEqual(export_doc.move_ids, move)
+
+    def test_populate_without_source_move_ids_keeps_legacy_domain(self):
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Legacy Domain Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "Legacy Domain Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice = self._create_invoice(
+            partner, journal, [(product_a, 100.0)], "2026-01-10"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        self.assertFalse(export_doc.source_move_ids)
+        export_doc.action_populate()
+
+        self.assertEqual(export_doc.move_ids, invoice)
+
+    def test_populate_with_source_move_ids_excludes_non_posted(self):
+        journal = self._get_general_journal()
+        ctype = self._create_minimal_export_type()
+        draft_move = self._create_journal_entry(
+            journal, 100.0, "2026-01-10", post=False
+        )
+        self.assertEqual(draft_move.state, "draft")
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {
+                "type_id": ctype.id,
+                "date": "2026-03-01",
+                "output_format": "csv",
+                "source_move_ids": [(6, 0, draft_move.ids)],
+            }
+        )
+        export_doc.action_populate()
+
+        self.assertNotIn(draft_move, export_doc.move_ids)
+        self.assertFalse(export_doc.summary_ids)
 
     # -------------------------------------------------------------------
     # Grouping Method (BL-0104)
