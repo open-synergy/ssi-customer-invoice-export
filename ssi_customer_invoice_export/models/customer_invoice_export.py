@@ -187,6 +187,24 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
             "in Draft."
         ),
     )
+    source_move_ids = fields.Many2many(
+        string="Source Invoices",
+        comodel_name="account.move",
+        relation="rel_cust_inv_export_2_source_move",
+        column1="export_id",
+        column2="move_id",
+        readonly=True,
+        copy=False,
+        help=(
+            "Set by a glue module to point this document directly at the "
+            "exact moves it must export, bypassing the standard "
+            "invoice-shaped criteria (move type, payment state, journal, "
+            "partner) applied by the Populate button when this field is "
+            "empty. Used for source models whose moves are never shaped "
+            "like a standard Odoo customer invoice (e.g. move_type "
+            "'entry')."
+        ),
+    )
     line_ids = fields.Many2many(
         string="Invoice Lines",
         comodel_name="account.move.line",
@@ -330,14 +348,34 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         return ("move", move.id)
 
     def _prepare_invoice_domain(self):
+        """Build the search domain used by ``_populate`` to select moves.
+
+        When ``source_move_ids`` is set, the caller (typically a glue
+        module) already knows exactly which moves to export, so this
+        method returns a full replacement domain restricted to those
+        moves -- it does not delegate to ``super()`` on this branch,
+        because the standard invoice-shaped criteria (move type, payment
+        state, journal, partner) do not apply to non-invoice moves. When
+        ``source_move_ids`` is empty, the standard criteria defined by
+        ``super()`` apply unchanged.
+
+        :return: an Odoo domain (list of tuples) for ``account.move``
+        :rtype: list
+        """
         self.ensure_one()
-        domain = [
-            ("move_type", "=", "out_invoice"),
-            ("state", "=", "posted"),
-            ("payment_state", "in", ("not_paid", "partial")),
-            ("journal_id", "in", self.allowed_journal_ids.ids),
-            ("partner_id", "in", self.allowed_partner_ids.ids),
-        ]
+        if self.source_move_ids:
+            domain = [
+                ("id", "in", self.source_move_ids.ids),
+                ("state", "=", "posted"),
+            ]
+        else:
+            domain = [
+                ("move_type", "=", "out_invoice"),
+                ("state", "=", "posted"),
+                ("payment_state", "in", ("not_paid", "partial")),
+                ("journal_id", "in", self.allowed_journal_ids.ids),
+                ("partner_id", "in", self.allowed_partner_ids.ids),
+            ]
         if self.date_start:
             domain.append(("invoice_date", ">=", self.date_start))
         if self.date_end:
