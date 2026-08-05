@@ -12,7 +12,8 @@
 
 ## Flow
 
-1. Open the **Financial Accounting > Configuration > Customer Invoice Export Types** menu.
+1. Open the **Financial Accounting > Configuration > Customer Invoice Export Types**
+   menu.
 2. Select one or more records to delete (check the checkbox).
 3. Click **Action** > **Delete**.
 4. Click **OK** to confirm.

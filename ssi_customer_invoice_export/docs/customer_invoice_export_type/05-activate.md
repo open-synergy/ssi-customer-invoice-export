@@ -13,7 +13,8 @@
 
 ## Flow
 
-1. Open the **Financial Accounting > Configuration > Customer Invoice Export Types** menu.
+1. Open the **Financial Accounting > Configuration > Customer Invoice Export Types**
+   menu.
 2. Enable the **Archived** filter in the search bar.
 3. Select one or more records to reactivate (check the checkbox).
 4. Click **Action** > **Unarchive**.

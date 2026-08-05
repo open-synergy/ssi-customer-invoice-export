@@ -13,13 +13,14 @@
 
 ## Flow
 
-1. Open the **Financial Accounting > Configuration > Customer Invoice Export Types** menu.
+1. Open the **Financial Accounting > Configuration > Customer Invoice Export Types**
+   menu.
 2. Find and open the record to edit.
 3. Change the required fields.
 4. _(Optional)_ If the **Code** field still shows `/`, click **Generate Code** in the
-   header to assign a code from the configured sequence template automatically. It leaves
-   any other value untouched, so skip this step if the record already has a code you want
-   to keep.
+   header to assign a code from the configured sequence template automatically. It
+   leaves any other value untouched, so skip this step if the record already has a code
+   you want to keep.
 5. Click **Save**.
 
 ## Post-Condition
