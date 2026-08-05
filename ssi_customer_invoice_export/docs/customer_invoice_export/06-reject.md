@@ -1,10 +1,10 @@
 # Reject Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** approver on the approval level that is currently pending (user in group
-> *Customer Invoice Export — Validator*)\
+> **Actor:** approver on the approval level that is currently pending (user in group \_Customer
+> Invoice Export — Validator*)\
 > **State:** `confirm` → `reject`\
 > **Requires:** `04-confirm`
 
@@ -15,7 +15,7 @@
 - **Config:** An active `approval.template` for this model matches this record.
 - **Access:** User is registered as an approver on the approval level that is currently
   pending.
-- **Access:** User is in group *Customer Invoice Export — Validator*.
+- **Access:** User is in group _Customer Invoice Export — Validator_.
 
 ## Flow
 

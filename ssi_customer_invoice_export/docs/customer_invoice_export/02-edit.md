@@ -1,17 +1,17 @@
 # Edit Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** user in group *Customer Invoice Export — User*\
+> **Actor:** user in group \_Customer Invoice Export — User*\
 > **Requires:** `01-create`\
-> **Inline Actions:** `action_populate` (Populate), `action_reload_policy_template`
-> (Reload Template Policy)
+> **Inline Actions:** `action_populate` (Populate), `action_reload_policy_template` (Reload
+> Template Policy)
 
 ## Pre-Condition
 
 - **Record:** Status is **Draft**.
-- **Access:** User is in group *Customer Invoice Export — User*.
+- **Access:** User is in group _Customer Invoice Export — User_.
 
 ## Flow
 
@@ -24,14 +24,13 @@
    Lines**, and **Summary** from the current **Type** and date range -- for example
    after changing **Type** or **Date Start**/**Date End**. The **Invoices** list can
    also be adjusted manually. Skipping this step after changing **Type** leaves
-   **Invoices**/**Summary** built from the previous criteria, which can make the
-   export file generated after Confirm/Approve contain the wrong invoices, or fail with
-   "No summary rows to export" if none of the previously selected invoices still
-   qualify.
-5. _(Optional, Settings/Technical group only)_ On the **Policies** tab, click
-   **Reload Template Policy** to re-evaluate which `policy.template` applies to this
-   document -- use this after something that affects the evaluation changed. Skipping
-   this step leaves the currently assigned template unchanged.
+   **Invoices**/**Summary** built from the previous criteria, which can make the export
+   file generated after Confirm/Approve contain the wrong invoices, or fail with "No
+   summary rows to export" if none of the previously selected invoices still qualify.
+5. _(Optional, Settings/Technical group only)_ On the **Policies** tab, click **Reload
+   Template Policy** to re-evaluate which `policy.template` applies to this document --
+   use this after something that affects the evaluation changed. Skipping this step
+   leaves the currently assigned template unchanged.
 6. Click **Save**.
 
 ## Post-Condition

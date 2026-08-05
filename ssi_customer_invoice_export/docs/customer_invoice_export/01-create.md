@@ -1,12 +1,12 @@
 # Create Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** user in group *Customer Invoice Export — User*\
+> **Actor:** user in group \_Customer Invoice Export — User*\
 > **State:** `—` → `draft`\
-> **Inline Actions:** `action_populate` (Populate), `action_reload_policy_template`
-> (Reload Template Policy)
+> **Inline Actions:** `action_populate` (Populate), `action_reload_policy_template` (Reload
+> Template Policy)
 
 ## Pre-Condition
 
@@ -14,7 +14,7 @@
 - **Data:** At least one posted customer invoice exists that is not fully paid and
   matches the selected Type's allowed journals, allowed partners, and, if a date range
   is used, invoice date.
-- **Access:** User is in group *Customer Invoice Export — User*.
+- **Access:** User is in group _Customer Invoice Export — User_.
 
 ## Flow
 
@@ -22,7 +22,7 @@
    menu.
 2. Click the **New** button. **(14.0: "Create")**
 3. Fill in the required fields:
-   - **Type** *(required)*: Select the Customer Invoice Export Type that determines the
+   - **Type** _(required)_: Select the Customer Invoice Export Type that determines the
      allowed journals, allowed partners, and allowed products used by **Populate**, and
      the default output format.
    - **Date**: Defaults to today's date. Change if needed.
@@ -39,14 +39,14 @@
    products in **Invoice Lines**; and build the **Summary** rows used later to generate
    the export file. The **Invoices** list can also be adjusted manually afterward while
    the document is still in Draft. Skipping this step leaves **Summary** empty, and the
-   export file generation triggered after Confirm/Approve will fail with
-   "No summary rows to export".
-5. _(Optional, Settings/Technical group only)_ On the **Policies** tab, click
-   **Reload Template Policy** to re-evaluate which `policy.template` applies to this
-   document. A matching template is already assigned automatically when the record is
-   created; use this button only if something that affects the evaluation (e.g. the
-   configured templates) changed afterward. Skipping this step leaves the
-   automatically assigned template unchanged.
+   export file generation triggered after Confirm/Approve will fail with "No summary
+   rows to export".
+5. _(Optional, Settings/Technical group only)_ On the **Policies** tab, click **Reload
+   Template Policy** to re-evaluate which `policy.template` applies to this document. A
+   matching template is already assigned automatically when the record is created; use
+   this button only if something that affects the evaluation (e.g. the configured
+   templates) changed afterward. Skipping this step leaves the automatically assigned
+   template unchanged.
 6. Click **Save**.
 
 ## Post-Condition

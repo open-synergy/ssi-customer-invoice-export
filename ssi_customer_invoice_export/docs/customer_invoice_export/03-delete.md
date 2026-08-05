@@ -1,16 +1,16 @@
 # Delete Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** user in group *Customer Invoice Export — User*\
+> **Actor:** user in group \_Customer Invoice Export — User*\
 > **Requires:** `01-create`
 
 ## Pre-Condition
 
 - **Record:** Status is **Draft**.
 - **Record:** Document number is still **/** (not yet generated).
-- **Access:** User is in group *Customer Invoice Export — User*.
+- **Access:** User is in group _Customer Invoice Export — User_.
 
 ## Flow
 

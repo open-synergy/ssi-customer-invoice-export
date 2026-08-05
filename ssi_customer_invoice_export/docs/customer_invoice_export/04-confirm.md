@@ -1,9 +1,9 @@
 # Confirm Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** user in group *Customer Invoice Export — User*\
+> **Actor:** user in group \_Customer Invoice Export — User*\
 > **State:** `draft` → `confirm`\
 > **Requires:** `01-create`
 
@@ -14,7 +14,7 @@
   `draft` to the actor's group.
 - **Config:** An active `approval.template` for this model matches this record and has
   at least one approver level.
-- **Access:** User is in group *Customer Invoice Export — User*.
+- **Access:** User is in group _Customer Invoice Export — User_.
 
 ## Flow
 
@@ -27,5 +27,4 @@
 ## Post-Condition
 
 - Status changes to **Waiting for Approval**.
-- Approval records are created for each approver level defined by the approval
-  template.
+- Approval records are created for each approver level defined by the approval template.
