@@ -63,6 +63,12 @@ Customer Invoice Export
 * `Confirm Customer Invoice Export <docs/customer_invoice_export/04-confirm.html>`_
 * `Approve Customer Invoice Export <docs/customer_invoice_export/05-approve.html>`_
 * `Reject Customer Invoice Export <docs/customer_invoice_export/06-reject.html>`_
+* `Cancel Customer Invoice Export <docs/customer_invoice_export/10-cancel.html>`_
+* `Restart Customer Invoice Export <docs/customer_invoice_export/12-restart.html>`_
+* `Reset Document Number - Customer Invoice Export <docs/customer_invoice_export/13-reset-number.html>`_
+* `Restart Approval Process - Customer Invoice Export <docs/customer_invoice_export/14-restart-approval.html>`_
+* `Requeue Customer Invoice Export <docs/customer_invoice_export/15-requeue.html>`_
+* `Recompute Queue Done Result - Customer Invoice Export <docs/customer_invoice_export/16-recompute-queue-done-result.html>`_
 
 
 Installation
