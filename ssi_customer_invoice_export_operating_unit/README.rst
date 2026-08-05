@@ -12,6 +12,13 @@ operating unit; when set, the **Populate** button only selects customer
 invoices and allowed journals belonging to that operating unit.
 
 
+Work Instruction
+================
+
+* `Create Customer Invoice Export <docs/customer_invoice_export/01-create.html>`_
+* `Edit Customer Invoice Export <docs/customer_invoice_export/02-edit.html>`_
+
+
 Bug Tracker
 ===========
 
