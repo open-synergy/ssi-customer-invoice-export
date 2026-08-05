@@ -42,6 +42,19 @@ export files depending on the product on each line.
   ``s.move_ids`` (a recordset), not ``s.move_id``.
 
 
+Work Instruction
+================
+
+Customer Invoice Export Type
+-----------------------------
+
+* `Create Customer Invoice Export Type <docs/customer_invoice_export_type/01-create.html>`_
+* `Edit Customer Invoice Export Type <docs/customer_invoice_export_type/02-edit.html>`_
+* `Delete Customer Invoice Export Type <docs/customer_invoice_export_type/03-delete.html>`_
+* `Deactivate Customer Invoice Export Type <docs/customer_invoice_export_type/04-deactivate.html>`_
+* `Activate Customer Invoice Export Type <docs/customer_invoice_export_type/05-activate.html>`_
+
+
 Installation
 ============
 
