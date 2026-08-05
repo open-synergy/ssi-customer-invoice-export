@@ -1,9 +1,9 @@
 # Recompute Queue Done Result — Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** user in group _Customer Invoice Export — Viewer_\
+> **Actor:** user in group \_Customer Invoice Export — Viewer*\
 > **State:** `queue_done` → `done`\
 > **Requires:** `05-approve`
 
@@ -14,9 +14,9 @@
   automatically, on every write, whenever the **To Done Queue Job Batch State**
   (`done_queue_job_batch_state`) becomes **Finished** — so this document frequently
   reaches Done on its own, without this button ever being clicked.
-- **Access:** User is in group _Customer Invoice Export — Viewer_ (or above). This button
-  is not guarded by a dedicated policy field, so it is visible to anyone who can open the
-  record.
+- **Access:** User is in group _Customer Invoice Export — Viewer_ (or above). This
+  button is not guarded by a dedicated policy field, so it is visible to anyone who can
+  open the record.
 
 ## Flow
 

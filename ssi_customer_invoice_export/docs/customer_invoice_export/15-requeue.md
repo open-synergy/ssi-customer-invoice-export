@@ -1,18 +1,18 @@
 # Requeue Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** user in group _Customer Invoice Export — Viewer_\
+> **Actor:** user in group \_Customer Invoice Export — Viewer*\
 > **Requires:** `05-approve`
 
 ## Pre-Condition
 
 - **Record:** Status is **Queue To Done**, and the To Done Queue Job Batch is not yet in
   the **Finished** state.
-- **Access:** User is in group _Customer Invoice Export — Viewer_ (or above). This button
-  is not guarded by a dedicated policy field, so it is visible to anyone who can open the
-  record.
+- **Access:** User is in group _Customer Invoice Export — Viewer_ (or above). This
+  button is not guarded by a dedicated policy field, so it is visible to anyone who can
+  open the record.
 
 ## Flow
 

@@ -1,9 +1,9 @@
 # Reset Document Number — Customer Invoice Export
 
-> **Module:** ssi_customer_invoice_export\
+> **Module:** ssi*customer_invoice_export\
 > **Model:** `customer_invoice_export`\
 > **Menu:** Financial Accounting > Account Receivable > Customer Invoice Exports\
-> **Actor:** user in group _Customer Invoice Export — Validator_\
+> **Actor:** user in group \_Customer Invoice Export — Validator*\
 > **Requires:** `01-create`
 
 ## Pre-Condition
