@@ -54,6 +54,16 @@ Customer Invoice Export Type
 * `Deactivate Customer Invoice Export Type <docs/customer_invoice_export_type/04-deactivate.html>`_
 * `Activate Customer Invoice Export Type <docs/customer_invoice_export_type/05-activate.html>`_
 
+Customer Invoice Export
+------------------------
+
+* `Create Customer Invoice Export <docs/customer_invoice_export/01-create.html>`_
+* `Edit Customer Invoice Export <docs/customer_invoice_export/02-edit.html>`_
+* `Delete Customer Invoice Export <docs/customer_invoice_export/03-delete.html>`_
+* `Confirm Customer Invoice Export <docs/customer_invoice_export/04-confirm.html>`_
+* `Approve Customer Invoice Export <docs/customer_invoice_export/05-approve.html>`_
+* `Reject Customer Invoice Export <docs/customer_invoice_export/06-reject.html>`_
+
 
 Installation
 ============
