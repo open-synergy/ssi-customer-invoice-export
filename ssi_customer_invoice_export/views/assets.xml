@@ -13,6 +13,10 @@
                 type="text/javascript"
                 src="/ssi_customer_invoice_export/static/tests/tours/customer_invoice_export_type_tour.js"
             />
+        <script
+                type="text/javascript"
+                src="/ssi_customer_invoice_export/static/tests/tours/customer_invoice_export_tour.js"
+            />
     </xpath>
 </template>
 </odoo>
