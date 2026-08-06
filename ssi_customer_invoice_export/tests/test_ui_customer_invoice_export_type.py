@@ -15,40 +15,42 @@ class TestUiCustomerInvoiceExportType(HttpCase):
     never through UI steps.
     """
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         """Grant the type group and create the fixtures the tours edit.
 
-        The menu is gated by ``customer_invoice_export_type_group``; the
-        group's security data already includes ``base.user_admin``, but the
-        grant is repeated explicitly here so the tour keeps working even if
-        that default membership changes. ``code`` is left as ``"/"`` on
-        every fixture (per Flow step 3 of
-        ``docs/customer_invoice_export_type/01-create.md``) so the Generate
-        Code inline action has something to do in the edit tour too, and so
-        several fixtures can share it without violating the unique-code
-        constraint (``mixin.master_data._check_duplicate_code`` excludes
+        ``HttpCase`` (via ``TransactionCase``) only exposes ``self.env`` per
+        test method -- unlike ``SavepointCase``, it has no ``cls.env`` at
+        ``setUpClass`` time -- so Pre-Condition data is prepared here
+        instead. The menu is gated by
+        ``customer_invoice_export_type_group``; the group's security data
+        already includes ``base.user_admin``, but the grant is repeated
+        explicitly here so the tour keeps working even if that default
+        membership changes. ``code`` is left as ``"/"`` on every fixture
+        (per Flow step 3 of ``docs/customer_invoice_export_type/01-create.md``)
+        so the Generate Code inline action has something to do in the edit
+        tour too, and so several fixtures can share it without violating
+        the unique-code constraint
+        (``mixin.master_data._check_duplicate_code`` excludes
         ``code == "/"`` from the duplicate check).
         """
-        super().setUpClass()
-        cls.env.ref(
+        super().setUp()
+        self.env.ref(
             "ssi_customer_invoice_export.customer_invoice_export_type_group"
-        ).sudo().write({"users": [(4, cls.env.ref("base.user_admin").id)]})
+        ).sudo().write({"users": [(4, self.env.ref("base.user_admin").id)]})
 
-        cls.type_edit = cls._create_type("TOUR CIET Edit")
-        cls.type_delete = cls._create_type("TOUR CIET Delete")
-        cls.type_deactivate = cls._create_type("TOUR CIET Deactivate")
-        cls.type_activate = cls._create_type("TOUR CIET Activate", active=False)
+        self.type_edit = self._create_type("TOUR CIET Edit")
+        self.type_delete = self._create_type("TOUR CIET Delete")
+        self.type_deactivate = self._create_type("TOUR CIET Deactivate")
+        self.type_activate = self._create_type("TOUR CIET Activate", active=False)
 
-    @classmethod
-    def _create_type(cls, name, active=True):
+    def _create_type(self, name, active=True):
         """Pre-Condition helper: create a ``customer_invoice_export_type``.
 
         :param name: unique record name the tour locates via ``:contains``.
         :param active: initial value of the ``active`` field.
         :return: the created ``customer_invoice_export_type`` record.
         """
-        return cls.env["customer_invoice_export_type"].create(
+        return self.env["customer_invoice_export_type"].create(
             {
                 "name": name,
                 "code": "/",
