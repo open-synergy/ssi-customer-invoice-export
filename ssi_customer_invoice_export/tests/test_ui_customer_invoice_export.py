@@ -38,9 +38,21 @@ class TestUiCustomerInvoiceExport(HttpCase):
         the Validator group by default (see
         ``security/res_groups/customer_invoice_export.xml``), so no
         extra group grant is needed either.
+
+        Every ``customer_invoice_export`` document below is created
+        with ``.with_user(self.admin)``: ``self.env`` here runs as
+        ``SUPERUSER_ID`` (Odoo core ``TransactionCase.setUp``), not as
+        ``base.user_admin`` (the tour's login), and
+        ``security/ir_rule/customer_invoice_export.xml`` restricts
+        every internal user to ``[('user_id', '=', user.id)]`` --
+        ``user_id`` defaults to the creating user
+        (``mixin_transaction._default_user_id``). A document created as
+        superuser would therefore end up owned by ``SUPERUSER_ID`` and
+        be invisible to the admin browser session opening the list.
         """
         super().setUp()
 
+        self.admin = self.env.ref("base.user_admin")
         self.income_account = self._get_income_account()
 
         # -- create: one journal/product/invoice so Populate has exactly
@@ -97,12 +109,16 @@ class TestUiCustomerInvoiceExport(HttpCase):
             self.product_edit,
             "2026-02-15",
         )
-        self.export_edit = self.env["customer_invoice_export"].create(
-            {
-                "type_id": self.type_edit.id,
-                "date": "2026-03-01",
-                "output_format": "csv",
-            }
+        self.export_edit = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_edit.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
         )
         # Baseline Populate with no date range -- both invoices qualify,
         # so the edit tour's narrower Date Start has a row to drop.
@@ -112,24 +128,32 @@ class TestUiCustomerInvoiceExport(HttpCase):
         self.type_delete = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Delete Type", "code": "TOURCIEDL"}
         )
-        self.export_delete = self.env["customer_invoice_export"].create(
-            {
-                "type_id": self.type_delete.id,
-                "date": "2026-03-01",
-                "output_format": "csv",
-            }
+        self.export_delete = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_delete.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
         )
 
         # -- confirm: plain draft record, no invoice data needed.
         self.type_confirm = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Confirm Type", "code": "TOURCIECF"}
         )
-        self.export_confirm = self.env["customer_invoice_export"].create(
-            {
-                "type_id": self.type_confirm.id,
-                "date": "2026-03-01",
-                "output_format": "csv",
-            }
+        self.export_confirm = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_confirm.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
         )
 
         # -- approve/reject: pre-confirmed into Waiting for Approval.
@@ -140,24 +164,32 @@ class TestUiCustomerInvoiceExport(HttpCase):
         self.type_approve = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Approve Type", "code": "TOURCIEAP"}
         )
-        self.export_approve = self.env["customer_invoice_export"].create(
-            {
-                "type_id": self.type_approve.id,
-                "date": "2026-03-01",
-                "output_format": "csv",
-            }
+        self.export_approve = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_approve.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
         )
         self.export_approve.with_context(bypass_policy_check=True).action_confirm()
 
         self.type_reject = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Reject Type", "code": "TOURCIERJ"}
         )
-        self.export_reject = self.env["customer_invoice_export"].create(
-            {
-                "type_id": self.type_reject.id,
-                "date": "2026-03-01",
-                "output_format": "csv",
-            }
+        self.export_reject = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_reject.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
         )
         self.export_reject.with_context(bypass_policy_check=True).action_confirm()
 
