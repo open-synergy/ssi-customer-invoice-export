@@ -37,11 +37,59 @@ class TestUiCustomerInvoiceExportType(HttpCase):
         self.env.ref(
             "ssi_customer_invoice_export.customer_invoice_export_type_group"
         ).sudo().write({"users": [(4, self.env.ref("base.user_admin").id)]})
+        self._create_type_sequence_template()
 
         self.type_edit = self._create_type("TOUR CIET Edit")
         self.type_delete = self._create_type("TOUR CIET Delete")
         self.type_deactivate = self._create_type("TOUR CIET Deactivate")
         self.type_activate = self._create_type("TOUR CIET Activate", active=False)
+
+    def _create_type_sequence_template(self):
+        """Create a test-only ``sequence.template`` for the Generate Code
+        button.
+
+        Production data ships a ``sequence.template`` only for the
+        transactional ``customer_invoice_export`` document
+        (``sequence_template/customer_invoice_export.xml``) -- there is
+        none for ``customer_invoice_export_type``, so the header's
+        Generate Code button (``action_generate_code``, an Inline Action
+        of the create/edit tours per this module's Keputusan Desain)
+        always raises "No sequence template found" as shipped. This
+        fixture is created here, at the test-transaction level only (like
+        every other fixture in this ``setUp``, rolled back after each test
+        method), by explicit user decision on
+        open-synergy/ssi-customer-invoice-export#22: it makes the tours
+        exercise the button without changing production data/behaviour --
+        end users still need a real ``sequence.template`` added separately
+        before Generate Code works for them.
+        """
+        model = self.env["ir.model"]._get("customer_invoice_export_type")
+        code_field = self.env["ir.model.fields"]._get(
+            "customer_invoice_export_type", "code"
+        )
+        date_field = self.env["ir.model.fields"]._get(
+            "customer_invoice_export_type", "create_date"
+        )
+        sequence = self.env["ir.sequence"].create(
+            {
+                "name": "TOUR Customer Invoice Export Type Sequence",
+                "code": "tour.customer_invoice_export_type",
+                "prefix": "TOURCIET",
+                "padding": 4,
+            }
+        )
+        self.env["sequence.template"].create(
+            {
+                "name": "TOUR Customer Invoice Export Type",
+                "model_id": model.id,
+                "sequence_field_id": code_field.id,
+                "date_field_id": date_field.id,
+                "computation_method": "use_python",
+                "python_code": "result = True",
+                "sequence_selection_method": "use_sequence",
+                "sequence_id": sequence.id,
+            }
+        )
 
     def _create_type(self, name, active=True):
         """Pre-Condition helper: create a ``customer_invoice_export_type``.
