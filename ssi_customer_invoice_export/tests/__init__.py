@@ -4,3 +4,4 @@
 
 from . import test_customer_invoice_export_type
 from . import test_customer_invoice_export
+from . import test_ui_customer_invoice_export_type
