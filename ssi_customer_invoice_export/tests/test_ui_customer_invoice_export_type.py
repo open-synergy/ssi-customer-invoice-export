@@ -37,7 +37,6 @@ class TestUiCustomerInvoiceExportType(HttpCase):
         self.env.ref(
             "ssi_customer_invoice_export.customer_invoice_export_type_group"
         ).sudo().write({"users": [(4, self.env.ref("base.user_admin").id)]})
-        self._create_type_sequence_template()
 
         self.type_edit = self._create_type("TOUR CIET Edit")
         self.type_delete = self._create_type("TOUR CIET Delete")
@@ -56,12 +55,14 @@ class TestUiCustomerInvoiceExportType(HttpCase):
         of the create/edit tours per this module's Keputusan Desain)
         always raises "No sequence template found" as shipped. This
         fixture is created here, at the test-transaction level only (like
-        every other fixture in this ``setUp``, rolled back after each test
+        every other fixture in this class, rolled back after the test
         method), by explicit user decision on
         open-synergy/ssi-customer-invoice-export#22: it makes the tours
         exercise the button without changing production data/behaviour --
         end users still need a real ``sequence.template`` added separately
-        before Generate Code works for them.
+        before Generate Code works for them. Called only from the two
+        test methods that click Generate Code, to keep the other three
+        tours' fixtures minimal.
         """
         model = self.env["ir.model"]._get("customer_invoice_export_type")
         code_field = self.env["ir.model.fields"]._get(
@@ -111,6 +112,7 @@ class TestUiCustomerInvoiceExportType(HttpCase):
 
         IK: docs/customer_invoice_export_type/01-create.md
         """
+        self._create_type_sequence_template()
         self.start_tour(
             "/web", "ssi_customer_invoice_export_type_create", login="admin"
         )
@@ -120,6 +122,7 @@ class TestUiCustomerInvoiceExportType(HttpCase):
 
         IK: docs/customer_invoice_export_type/02-edit.md
         """
+        self._create_type_sequence_template()
         self.start_tour("/web", "ssi_customer_invoice_export_type_edit", login="admin")
 
     def test_delete(self):
