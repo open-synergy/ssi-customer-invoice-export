@@ -93,12 +93,21 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_type_tour", fun
                     trigger: ".o_statusbar_buttons button[name='action_generate_code']",
                 },
                 {
-                    // Gerbang: tunggu RPC action_generate_code (auto-save
-                    // + write + reload) selesai sebelum langkah
-                    // berikutnya (lihat patterns.md §M "Menunggu UI tak
-                    // lagi terblokir").
+                    // Gerbang: action_generate_code auto-save + tulis + muat
+                    // ulang record secara asinkron. "body:not(.o_ui_blocked)"
+                    // BUKAN gerbang sah di sini -- indikator .o_ui_blocked
+                    // baru menyala setelah 3 detik RPC tergantung
+                    // (web/static/src/js/chrome/loading.js), jadi ia selalu
+                    // lolos seketika untuk RPC secepat ini (lolos uji lakmus
+                    // negatif: cocok bahkan tanpa tombol pernah diklik).
+                    // Tombol Generate Code sendiri di-disable SINKRON saat
+                    // diklik (form_renderer.js disableButtons()) dan baru
+                    // di-enable lagi setelah siklus auto-save + call_button
+                    // + reload selesai (enableButtons()) -- itulah yang
+                    // ditunggu di sini.
                     content: "Generate Code call has completed",
-                    trigger: "body:not(.o_ui_blocked)",
+                    trigger:
+                        ".o_statusbar_buttons button[name='action_generate_code']:enabled",
                     run: function () {
                         // Assertion only.
                     },
@@ -278,7 +287,8 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_type_tour", fun
                     // Gerbang -- lihat catatan gerbang di tour create
                     // di atas.
                     content: "Generate Code call has completed",
-                    trigger: "body:not(.o_ui_blocked)",
+                    trigger:
+                        ".o_statusbar_buttons button[name='action_generate_code']:enabled",
                     run: function () {
                         // Assertion only.
                     },
