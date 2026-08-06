@@ -193,6 +193,151 @@ class TestUiCustomerInvoiceExport(HttpCase):
         )
         self.export_reject.with_context(bypass_policy_check=True).action_confirm()
 
+        # -- cancel: plain draft record. The Cancellation Reason is a
+        # global one (``global_use``), so it does not need to be linked
+        # to this model through ``ir.model`` to appear in the wizard.
+        self.cancel_reason = self.env["base.cancel_reason"].create(
+            {
+                "name": "TOUR CIE Cancel Reason",
+                "code": "TOURCIECN",
+                "global_use": True,
+            }
+        )
+        self.type_cancel = self.env["customer_invoice_export_type"].create(
+            {"name": "TOUR CIE Cancel Type", "code": "TOURCIECNT"}
+        )
+        self.export_cancel = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_cancel.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
+        )
+
+        # -- restart: cancelled record, reached through action_cancel so
+        # the Cancellation Reason is stored exactly as the Select Cancel
+        # Reason wizard exercised by the cancel tour above would store
+        # it.
+        self.type_restart = self.env["customer_invoice_export_type"].create(
+            {"name": "TOUR CIE Redraft Type", "code": "TOURCIERT"}
+        )
+        self.export_restart = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_restart.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
+        )
+        self.export_restart.with_context(bypass_policy_check=True).action_cancel(
+            self.cancel_reason
+        )
+
+        # -- reset document number: draft record carrying a manually
+        # assigned number, so the reset is observable at all -- an
+        # untouched draft already carries "/" (rendered by name_get as
+        # "*<id>"), and resetting it would leave the title unchanged.
+        self.type_reset_number = self.env["customer_invoice_export_type"].create(
+            {"name": "TOUR CIE Reset Number Type", "code": "TOURCIERN"}
+        )
+        self.export_reset_number = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_reset_number.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
+        )
+        self.export_reset_number.write({"name": "TOURCIE-RESET-0001"})
+
+        # -- restart approval process: a document stuck in Waiting for
+        # Approval without an approval template resolved. ``state`` is
+        # written directly instead of calling ``action_confirm``,
+        # because confirming resolves the module's own matching
+        # approval.template -- writing the state directly reproduces the
+        # stalled situation the IK describes, a document that reached
+        # Waiting for Approval without ever getting a template resolved.
+        self.type_restart_approval = self.env["customer_invoice_export_type"].create(
+            {"name": "TOUR CIE Restart Approval Type", "code": "TOURCIERA"}
+        )
+        self.export_restart_approval = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_restart_approval.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
+        )
+        self.export_restart_approval.write({"state": "confirm"})
+
+        # -- requeue / recompute queue done result: both IK files require
+        # a document already in Queue To Done. It is reached through the
+        # real action_confirm/action_approve_approval methods, called
+        # ``with_user(self.admin)`` for the approval step so the
+        # approval record actually matches admin as its approver (the
+        # same production approval.template used by the approve tour
+        # above) -- rather than by writing ``state`` directly, since
+        # reaching Queue To Done this way also creates the To Done Queue
+        # Job Batch and its queued job that both tours below depend on.
+        self.type_requeue = self.env["customer_invoice_export_type"].create(
+            {"name": "TOUR CIE Requeue Type", "code": "TOURCIERQ"}
+        )
+        self.export_requeue = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_requeue.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
+        )
+        self.export_requeue.with_context(bypass_policy_check=True).action_confirm()
+        self.export_requeue.with_user(self.admin).action_approve_approval()
+
+        self.type_recompute = self.env["customer_invoice_export_type"].create(
+            {"name": "TOUR CIE Recompute Type", "code": "TOURCIERC"}
+        )
+        self.export_recompute = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_recompute.id,
+                    "date": "2026-03-01",
+                    "output_format": "csv",
+                }
+            )
+        )
+        self.export_recompute.with_context(bypass_policy_check=True).action_confirm()
+        self.export_recompute.with_user(self.admin).action_approve_approval()
+        # Mark the queued job itself Done, without touching the batch's
+        # own "state" field here, so the tour's own Recompute click is
+        # what transitions the batch (and this document) the rest of the
+        # way -- not this setUp. Writing the batch's "state" directly
+        # instead would flip this document's own
+        # "done_queue_job_batch_state" (a stored related field) to
+        # "Finished" immediately, which the module's own
+        # base.automation (docs/customer_invoice_export/
+        # 16-recompute-queue-done-result.md Pre-Condition) would then
+        # pick up before the tour ever runs, reaching Done here in
+        # setUp instead of through the button under test.
+        self.export_recompute.done_queue_job_batch_id.job_ids.write({"state": "done"})
+
     def _get_income_account(self):
         """Return an existing revenue account, creating one if needed.
 
@@ -350,3 +495,53 @@ class TestUiCustomerInvoiceExport(HttpCase):
         IK: docs/customer_invoice_export/06-reject.md
         """
         self.start_tour("/web", "ssi_customer_invoice_export_reject", login="admin")
+
+    def test_cancel(self):
+        """Run the cancel tour for ``customer_invoice_export``.
+
+        IK: docs/customer_invoice_export/10-cancel.md
+        """
+        self.start_tour("/web", "ssi_customer_invoice_export_cancel", login="admin")
+
+    def test_restart(self):
+        """Run the restart tour for ``customer_invoice_export``.
+
+        IK: docs/customer_invoice_export/12-restart.md
+        """
+        self.start_tour("/web", "ssi_customer_invoice_export_restart", login="admin")
+
+    def test_reset_number(self):
+        """Run the reset document number tour for ``customer_invoice_export``.
+
+        IK: docs/customer_invoice_export/13-reset-number.md
+        """
+        self.start_tour(
+            "/web", "ssi_customer_invoice_export_reset_number", login="admin"
+        )
+
+    def test_restart_approval(self):
+        """Run the restart approval process tour for ``customer_invoice_export``.
+
+        IK: docs/customer_invoice_export/14-restart-approval.md
+        """
+        self.start_tour(
+            "/web", "ssi_customer_invoice_export_restart_approval", login="admin"
+        )
+
+    def test_requeue(self):
+        """Run the requeue tour for ``customer_invoice_export``.
+
+        IK: docs/customer_invoice_export/15-requeue.md
+        """
+        self.start_tour("/web", "ssi_customer_invoice_export_requeue", login="admin")
+
+    def test_recompute_queue_done_result(self):
+        """Run the recompute queue done result tour for ``customer_invoice_export``.
+
+        IK: docs/customer_invoice_export/16-recompute-queue-done-result.md
+        """
+        self.start_tour(
+            "/web",
+            "ssi_customer_invoice_export_recompute_queue_done_result",
+            login="admin",
+        )

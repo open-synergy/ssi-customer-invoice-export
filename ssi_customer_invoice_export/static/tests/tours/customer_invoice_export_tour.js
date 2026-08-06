@@ -570,4 +570,464 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
             ]
         )
     );
+
+    // IK: docs/customer_invoice_export/10-cancel.md
+    tour.register(
+        "ssi_customer_invoice_export_cancel",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record to cancel.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Cancel Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Click the Cancel button.
+                //
+                // This button is declared type="action" (button_cancel of
+                // ssi_transaction_cancel_mixin), so what ends up in the DOM
+                // is name="<numeric id of the Select Cancel Reason window
+                // action>" -- an id that differs per database.
+                // button[name='action_cancel'] would never match; matching
+                // by label is mandatory here (odoo-development-ui-test
+                // selectors.md §4).
+                {
+                    content: "Click the Cancel button",
+                    trigger: ".o_statusbar_buttons button:enabled:contains('Cancel')",
+                    extra_trigger: ".o_form_view",
+                },
+
+                // Flow 4 -- In the wizard that appears, select the
+                // Cancellation Reason.
+                {
+                    content: "The Select Cancel Reason wizard is displayed",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+                {
+                    // cancel_reason_id is rendered with widget="radio" by
+                    // the wizard view, so it is a radio item that gets
+                    // clicked -- not a many2one autocomplete.
+                    content: "Select the cancel reason",
+                    trigger:
+                        ".o_field_widget[name='cancel_reason_id'] " +
+                        ".o_radio_item:contains(TOUR CIE Cancel Reason) input",
+                    run: "click",
+                },
+
+                // Flow 5 -- Click Confirm.
+                {
+                    content: "Confirm the wizard",
+                    trigger: ".modal-footer button[name='action_confirm']",
+                },
+
+                // Flow 6 -- Click OK on the confirmation dialog.
+                //
+                // The wizard's own Confirm button carries confirm="Are you
+                // sure?", which stacks a second dialog on top of the
+                // wizard; the topmost visible modal is what this trigger
+                // resolves to.
+                {
+                    content: "Click OK on the confirmation dialog",
+                    trigger: ".modal-footer button.btn-primary",
+                    in_modal: true,
+                },
+
+                // Post-Condition -- Status changes to Cancelled.
+                {
+                    content: "Status is Cancelled",
+                    trigger:
+                        ".o_statusbar_status .o_arrow_button[data-value='cancel'].btn-primary",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+                {
+                    // The cancel_reason template renders this h2 as a
+                    // sibling of the title h1, invisible unless
+                    // state == 'cancel', so it cannot pass before the
+                    // action above actually ran.
+                    content:
+                        "The selected Cancellation Reason is displayed next to the title",
+                    trigger: ".oe_title h2:contains(TOUR CIE Cancel Reason)",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
+
+    // IK: docs/customer_invoice_export/12-restart.md
+    tour.register(
+        "ssi_customer_invoice_export_restart",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record to restart.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Redraft Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Click the Restart button.
+                //
+                // action_restart is type="object" and carries confirm="
+                // Restart data. Are you sure?" in the mixin form view, so
+                // the dialog below is part of the Flow rather than a
+                // tour-only detour. Targeting the method name also keeps
+                // this apart from the Restart Approval Process button,
+                // whose label contains "Restart" as well.
+                {
+                    content: "Click the Restart button",
+                    trigger: ".o_statusbar_buttons button[name='action_restart']",
+                    extra_trigger: ".o_form_view",
+                },
+
+                // Flow 4 -- Click OK on the confirmation dialog.
+                {
+                    content: "Click OK on the confirmation dialog",
+                    trigger: ".modal-footer button.btn-primary",
+                    in_modal: true,
+                },
+
+                // Post-Condition -- Status returns to Draft.
+                {
+                    content: "Status is Draft",
+                    trigger:
+                        ".o_statusbar_status .o_arrow_button[data-value='draft'].btn-primary",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
+
+    // IK: docs/customer_invoice_export/13-reset-number.md
+    tour.register(
+        "ssi_customer_invoice_export_reset_number",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record whose document number will be
+                // reset.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Reset Number Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Click the Reset Document Number button.
+                {
+                    content: "Click the Reset Document Number button",
+                    trigger:
+                        ".o_statusbar_buttons button[name='action_reset_document_number']",
+                    extra_trigger: ".o_form_view",
+                },
+
+                // Flow 4 -- Click OK on the confirmation dialog.
+                {
+                    content: "Click OK on the confirmation dialog",
+                    trigger: ".modal-footer button.btn-primary",
+                    in_modal: true,
+                },
+
+                // Post-Condition -- Document number returns to "/".
+                //
+                // The read-only title shows display_name, and
+                // mixin.transaction.name_get renders the number "/" as
+                // "*<id>", so the asterisk is the visible marker of the
+                // reset. This is a real gate rather than a selector that
+                // matches the previous screen too: setUp gives this
+                // document a manual number ("TOURCIE-RESET-0001"), which
+                // is exactly what the manual_number_ok Pre-Condition of
+                // this IK allows a user to type, so the title carries no
+                // asterisk before the button is clicked.
+                {
+                    content: "Document number is reset (display name shows *)",
+                    trigger:
+                        ".oe_title .o_field_widget[name='display_name']:contains(*)",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
+
+    // IK: docs/customer_invoice_export/14-restart-approval.md
+    tour.register(
+        "ssi_customer_invoice_export_restart_approval",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record whose approval process is
+                // stalled.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Restart Approval Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Click the Restart Approval Process button.
+                //
+                // The button only shows while the document has no
+                // approval template resolved, which is the second
+                // Pre-Condition of this IK; setUp puts the document in
+                // exactly that state.
+                {
+                    content: "Click the Restart Approval Process button",
+                    trigger:
+                        ".o_statusbar_buttons button[name='action_reload_approval_template']",
+                    extra_trigger: ".o_form_view",
+                },
+
+                // Flow 4 -- Click OK on the confirmation dialog.
+                {
+                    content: "Click OK on the confirmation dialog",
+                    trigger: ".modal-footer button.btn-primary",
+                    in_modal: true,
+                },
+
+                // Post-Condition -- the existing approval records are
+                // discarded and a new approval process is created from
+                // the approval template that now matches the record. The
+                // module ships a template matching every
+                // customer_invoice_export document
+                // (approval_template/customer_invoice_export.xml), so
+                // this is the branch the tour walks. approval_ids is
+                // hidden while the document has no approval record, so
+                // this cannot pass before the button was actually
+                // clicked.
+                {
+                    content: "Open the Approvals tab",
+                    trigger: ".o_notebook .nav-link:contains(Approvals)",
+                },
+                {
+                    content: "The Approvals tab lists an approval record",
+                    trigger: ".o_field_widget[name='approval_ids'] .o_data_row",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Post-Condition -- Status remains Waiting for Approval;
+                // this action never changes the document's state.
+                {
+                    content: "Status is still Waiting for Approval",
+                    trigger:
+                        ".o_statusbar_status .o_arrow_button[data-value='confirm'].btn-primary",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
+
+    // IK: docs/customer_invoice_export/15-requeue.md
+    tour.register(
+        "ssi_customer_invoice_export_requeue",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record to requeue.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Requeue Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Open the Queue Processing tab.
+                {
+                    content: "Open the Queue Processing tab",
+                    trigger: ".o_notebook .nav-link:contains(Queue Processing)",
+                },
+
+                // Flow 4 -- Click the Requeue button. This button carries
+                // no confirm= attribute (Keputusan Desain, issue #24), so
+                // -- unlike every other button in this file -- no dialog
+                // step follows it.
+                {
+                    content: "Click the Requeue button",
+                    trigger: ".o_form_view button[name='action_requeue_done']",
+                },
+                {
+                    // Gerbang: same disable/enable idiom as Reload
+                    // Template Policy in the create/edit tours above.
+                    // action_requeue_done has no confirm= dialog, and
+                    // requeuing an already-pending job produces no other
+                    // DOM signal, so the button's own re-enable after the
+                    // RPC completes is the only content-bearing gate
+                    // available.
+                    content: "Requeue call has completed",
+                    trigger: "button[name='action_requeue_done']:enabled",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Post-Condition -- Status remains Queue To Done, and
+                // every job in the batch that was not yet Done is
+                // requeued.
+                {
+                    content: "Status is still Queue To Done",
+                    trigger:
+                        ".o_statusbar_status .o_arrow_button[data-value='queue_done'].btn-primary",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+                {
+                    content: "The Queue To Done group is still displayed",
+                    trigger: ".o_field_widget[name='done_queue_job_batch_id']",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+                {
+                    content: "The Requeue button is still rendered",
+                    trigger: "button[name='action_requeue_done']",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
+
+    // IK: docs/customer_invoice_export/16-recompute-queue-done-result.md
+    tour.register(
+        "ssi_customer_invoice_export_recompute_queue_done_result",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record to recompute.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Recompute Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Open the Queue Processing tab.
+                {
+                    content: "Open the Queue Processing tab",
+                    trigger: ".o_notebook .nav-link:contains(Queue Processing)",
+                },
+
+                // Flow 4 -- Click the Recompute Queue Done Result button.
+                {
+                    content: "Click the Recompute Queue Done Result button",
+                    trigger:
+                        ".o_form_view button[name='action_recompute_queue_done_result']",
+                },
+
+                // Flow 5 -- Click OK on the confirmation dialog.
+                {
+                    content: "Click OK on the confirmation dialog",
+                    trigger: ".modal-footer button.btn-primary",
+                    in_modal: true,
+                },
+
+                // Post-Condition -- setUp already marks the queued job
+                // Done (but leaves the batch itself short of Finished, so
+                // the transition below comes from this click, not from
+                // setUp), so this recompute finds the To Done Queue Job
+                // Batch Finished and transitions the document straight to
+                // Done.
+                {
+                    content: "Status is Done",
+                    trigger:
+                        ".o_statusbar_status .o_arrow_button[data-value='done'].btn-primary",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
 });
