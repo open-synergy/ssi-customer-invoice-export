@@ -12,13 +12,15 @@ class TestUiCustomerInvoiceExport(HttpCase):
     Every ``test_*`` method below runs the tour pairing with the IK file
     named in its docstring (``docs/customer_invoice_export/NN-*.md``).
     Pre-Condition data required by each IK is prepared here in Python --
-    never through UI steps -- following the tour authoring doctrine:
-    prerequisite/background data belongs to ``setUpClass``, the tour
-    itself only exercises the click-flow documented in the IK.
+    never through UI steps. ``HttpCase`` (via ``TransactionCase``) only
+    exposes ``self.env`` per test method -- unlike ``SavepointCase``, it
+    has no ``cls.env`` at ``setUpClass`` time -- so all fixtures below
+    are built in instance-level ``setUp`` instead (same constraint
+    already documented in
+    ``test_ui_customer_invoice_export_type.py``, this module).
     """
 
-    @classmethod
-    def setUpClass(cls):
+    def setUp(self):
         """Create the Types, journals/products/invoices, and draft or
         confirm-state documents every tour below opens.
 
@@ -37,91 +39,94 @@ class TestUiCustomerInvoiceExport(HttpCase):
         ``security/res_groups/customer_invoice_export.xml``), so no
         extra group grant is needed either.
         """
-        super().setUpClass()
+        super().setUp()
 
-        cls.income_account = cls._get_income_account()
+        self.income_account = self._get_income_account()
 
         # -- create: one journal/product/invoice so Populate has exactly
         # one matching invoice to select.
-        cls.journal_create = cls._create_sale_journal(
+        self.journal_create = self._create_sale_journal(
             "TOUR CIE Create Journal", "TCICR"
         )
-        cls.product_create = cls._create_product(
-            "TOUR CIE Create Product", cls.income_account
+        self.product_create = self._create_product(
+            "TOUR CIE Create Product", self.income_account
         )
-        cls.type_create = cls._create_export_type(
+        self.type_create = self._create_export_type(
             "TOUR CIE Create Type",
             "TOURCIECR",
-            cls.journal_create,
-            cls.product_create,
+            self.journal_create,
+            self.product_create,
         )
-        cls.partner_create = cls.env["res.partner"].create(
+        self.partner_create = self.env["res.partner"].create(
             {"name": "TOUR CIE Create Partner"}
         )
-        cls.invoice_create = cls._create_invoice(
-            cls.partner_create,
-            cls.journal_create,
-            cls.product_create,
+        self.invoice_create = self._create_invoice(
+            self.partner_create,
+            self.journal_create,
+            self.product_create,
             "2026-01-10",
         )
 
         # -- edit: two invoices on different dates so narrowing Date
         # Start and re-Populating provably drops the earlier one.
-        cls.journal_edit = cls._create_sale_journal("TOUR CIE Edit Journal", "TCIED")
-        cls.product_edit = cls._create_product(
-            "TOUR CIE Edit Product", cls.income_account
+        self.journal_edit = self._create_sale_journal("TOUR CIE Edit Journal", "TCIED")
+        self.product_edit = self._create_product(
+            "TOUR CIE Edit Product", self.income_account
         )
-        cls.type_edit = cls._create_export_type(
-            "TOUR CIE Edit Type", "TOURCIEED", cls.journal_edit, cls.product_edit
+        self.type_edit = self._create_export_type(
+            "TOUR CIE Edit Type",
+            "TOURCIEED",
+            self.journal_edit,
+            self.product_edit,
         )
-        cls.partner_edit_early = cls.env["res.partner"].create(
+        self.partner_edit_early = self.env["res.partner"].create(
             {"name": "TOUR CIE Edit Early Partner"}
         )
-        cls.partner_edit_late = cls.env["res.partner"].create(
+        self.partner_edit_late = self.env["res.partner"].create(
             {"name": "TOUR CIE Edit Late Partner"}
         )
-        cls.invoice_edit_early = cls._create_invoice(
-            cls.partner_edit_early,
-            cls.journal_edit,
-            cls.product_edit,
+        self.invoice_edit_early = self._create_invoice(
+            self.partner_edit_early,
+            self.journal_edit,
+            self.product_edit,
             "2026-01-05",
         )
-        cls.invoice_edit_late = cls._create_invoice(
-            cls.partner_edit_late,
-            cls.journal_edit,
-            cls.product_edit,
+        self.invoice_edit_late = self._create_invoice(
+            self.partner_edit_late,
+            self.journal_edit,
+            self.product_edit,
             "2026-02-15",
         )
-        cls.export_edit = cls.env["customer_invoice_export"].create(
+        self.export_edit = self.env["customer_invoice_export"].create(
             {
-                "type_id": cls.type_edit.id,
+                "type_id": self.type_edit.id,
                 "date": "2026-03-01",
                 "output_format": "csv",
             }
         )
         # Baseline Populate with no date range -- both invoices qualify,
         # so the edit tour's narrower Date Start has a row to drop.
-        cls.export_edit.action_populate()
+        self.export_edit.action_populate()
 
         # -- delete: plain draft record, no invoice data needed.
-        cls.type_delete = cls.env["customer_invoice_export_type"].create(
+        self.type_delete = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Delete Type", "code": "TOURCIEDL"}
         )
-        cls.export_delete = cls.env["customer_invoice_export"].create(
+        self.export_delete = self.env["customer_invoice_export"].create(
             {
-                "type_id": cls.type_delete.id,
+                "type_id": self.type_delete.id,
                 "date": "2026-03-01",
                 "output_format": "csv",
             }
         )
 
         # -- confirm: plain draft record, no invoice data needed.
-        cls.type_confirm = cls.env["customer_invoice_export_type"].create(
+        self.type_confirm = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Confirm Type", "code": "TOURCIECF"}
         )
-        cls.export_confirm = cls.env["customer_invoice_export"].create(
+        self.export_confirm = self.env["customer_invoice_export"].create(
             {
-                "type_id": cls.type_confirm.id,
+                "type_id": self.type_confirm.id,
                 "date": "2026-03-01",
                 "output_format": "csv",
             }
@@ -132,58 +137,56 @@ class TestUiCustomerInvoiceExport(HttpCase):
         # it still creates real approval records from the production
         # approval.template, so the tour's own Approve/Reject click
         # below is exercised against a genuine pending approval level.
-        cls.type_approve = cls.env["customer_invoice_export_type"].create(
+        self.type_approve = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Approve Type", "code": "TOURCIEAP"}
         )
-        cls.export_approve = cls.env["customer_invoice_export"].create(
+        self.export_approve = self.env["customer_invoice_export"].create(
             {
-                "type_id": cls.type_approve.id,
+                "type_id": self.type_approve.id,
                 "date": "2026-03-01",
                 "output_format": "csv",
             }
         )
-        cls.export_approve.with_context(bypass_policy_check=True).action_confirm()
+        self.export_approve.with_context(bypass_policy_check=True).action_confirm()
 
-        cls.type_reject = cls.env["customer_invoice_export_type"].create(
+        self.type_reject = self.env["customer_invoice_export_type"].create(
             {"name": "TOUR CIE Reject Type", "code": "TOURCIERJ"}
         )
-        cls.export_reject = cls.env["customer_invoice_export"].create(
+        self.export_reject = self.env["customer_invoice_export"].create(
             {
-                "type_id": cls.type_reject.id,
+                "type_id": self.type_reject.id,
                 "date": "2026-03-01",
                 "output_format": "csv",
             }
         )
-        cls.export_reject.with_context(bypass_policy_check=True).action_confirm()
+        self.export_reject.with_context(bypass_policy_check=True).action_confirm()
 
-    @classmethod
-    def _get_income_account(cls):
+    def _get_income_account(self):
         """Return an existing revenue account, creating one if needed.
 
         :return: an ``account.account`` recordset.
         :rtype: recordset
         """
-        account_type = cls.env.ref("account.data_account_type_revenue")
-        account = cls.env["account.account"].search(
+        account_type = self.env.ref("account.data_account_type_revenue")
+        account = self.env["account.account"].search(
             [
                 ("user_type_id", "=", account_type.id),
-                ("company_id", "=", cls.env.company.id),
+                ("company_id", "=", self.env.company.id),
             ],
             limit=1,
         )
         if not account:
-            account = cls.env["account.account"].create(
+            account = self.env["account.account"].create(
                 {
                     "name": "TOUR CIE Income Account",
                     "code": "TOURCIEINC",
                     "user_type_id": account_type.id,
-                    "company_id": cls.env.company.id,
+                    "company_id": self.env.company.id,
                 }
             )
         return account
 
-    @classmethod
-    def _create_sale_journal(cls, name, code):
+    def _create_sale_journal(self, name, code):
         """Create a dedicated sale journal for one tour scenario.
 
         A dedicated journal (rather than a shared/demo one) keeps
@@ -195,12 +198,11 @@ class TestUiCustomerInvoiceExport(HttpCase):
         :return: an ``account.journal`` recordset.
         :rtype: recordset
         """
-        return cls.env["account.journal"].create(
+        return self.env["account.journal"].create(
             {"name": name, "type": "sale", "code": code}
         )
 
-    @classmethod
-    def _create_product(cls, name, income_account):
+    def _create_product(self, name, income_account):
         """Create a service product posting to ``income_account``.
 
         :param name: product name.
@@ -209,7 +211,7 @@ class TestUiCustomerInvoiceExport(HttpCase):
         :return: a ``product.product`` recordset.
         :rtype: recordset
         """
-        return cls.env["product.product"].create(
+        return self.env["product.product"].create(
             {
                 "name": name,
                 "type": "service",
@@ -217,8 +219,7 @@ class TestUiCustomerInvoiceExport(HttpCase):
             }
         )
 
-    @classmethod
-    def _create_export_type(cls, name, code, journal, product):
+    def _create_export_type(self, name, code, journal, product):
         """Create a ``customer_invoice_export_type`` scoped to one
         journal and one product.
 
@@ -229,7 +230,7 @@ class TestUiCustomerInvoiceExport(HttpCase):
         :return: a ``customer_invoice_export_type`` recordset.
         :rtype: recordset
         """
-        return cls.env["customer_invoice_export_type"].create(
+        return self.env["customer_invoice_export_type"].create(
             {
                 "name": name,
                 "code": code,
@@ -241,8 +242,7 @@ class TestUiCustomerInvoiceExport(HttpCase):
             }
         )
 
-    @classmethod
-    def _create_invoice(cls, partner, journal, product, invoice_date):
+    def _create_invoice(self, partner, journal, product, invoice_date):
         """Create and post an unpaid customer invoice.
 
         :param partner: ``res.partner`` recordset (the customer).
@@ -253,7 +253,7 @@ class TestUiCustomerInvoiceExport(HttpCase):
         :return: the posted ``account.move`` recordset.
         :rtype: recordset
         """
-        move = cls.env["account.move"].create(
+        move = self.env["account.move"].create(
             {
                 "move_type": "out_invoice",
                 "partner_id": partner.id,
