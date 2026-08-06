@@ -307,6 +307,16 @@ class TestUiCustomerInvoiceExport(HttpCase):
             )
         )
         self.export_requeue.with_context(bypass_policy_check=True).action_confirm()
+        # action_confirm's own _check_confirm_policy() already reads
+        # confirm_ok, which computes -- and caches -- every policy field
+        # in the same pass (mixin.policy._compute_policy), approve_ok
+        # included, while active_approver_user_ids is still empty (no
+        # approval record exists yet). approve_ok has no @api.depends on
+        # approval_ids, so without this invalidate_cache() the stale
+        # False value would still be served after action_request_approval
+        # creates the approval record below, and action_approve_approval
+        # would refuse admin as an approver.
+        self.export_requeue.invalidate_cache()
         self.export_requeue.with_user(self.admin).action_approve_approval()
 
         self.type_recompute = self.env["customer_invoice_export_type"].create(
@@ -324,6 +334,9 @@ class TestUiCustomerInvoiceExport(HttpCase):
             )
         )
         self.export_recompute.with_context(bypass_policy_check=True).action_confirm()
+        # See the matching invalidate_cache() call for export_requeue
+        # above -- the same stale approve_ok caching applies here.
+        self.export_recompute.invalidate_cache()
         self.export_recompute.with_user(self.admin).action_approve_approval()
         # Mark the queued job itself Done, without touching the batch's
         # own "state" field here, so the tour's own Recompute click is
