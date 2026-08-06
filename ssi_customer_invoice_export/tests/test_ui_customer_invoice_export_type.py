@@ -70,9 +70,7 @@ class TestUiCustomerInvoiceExportType(HttpCase):
 
         IK: docs/customer_invoice_export_type/02-edit.md
         """
-        self.start_tour(
-            "/web", "ssi_customer_invoice_export_type_edit", login="admin"
-        )
+        self.start_tour("/web", "ssi_customer_invoice_export_type_edit", login="admin")
 
     def test_delete(self):
         """Run the delete tour for ``customer_invoice_export_type``.
