@@ -622,7 +622,7 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     },
                 },
                 {
-                    // cancel_reason_id is rendered with widget="radio" by
+                    // Cancel_reason_id is rendered with widget="radio" by
                     // the wizard view, so it is a radio item that gets
                     // clicked -- not a many2one autocomplete.
                     content: "Select the cancel reason",
