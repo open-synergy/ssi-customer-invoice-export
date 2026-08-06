@@ -19,7 +19,7 @@ Available addons
 addon | version | maintainers | summary
 --- | --- | --- | ---
 [ssi_customer_invoice_export](ssi_customer_invoice_export/) | 14.0.2.6.0 |  | Customer Invoice Export
-[ssi_customer_invoice_export_operating_unit](ssi_customer_invoice_export_operating_unit/) | 14.0.1.1.0 |  | Customer Invoice Export + Operating Unit
+[ssi_customer_invoice_export_operating_unit](ssi_customer_invoice_export_operating_unit/) | 14.0.1.2.0 |  | Customer Invoice Export + Operating Unit
 
 [//]: # (end addons)
 
