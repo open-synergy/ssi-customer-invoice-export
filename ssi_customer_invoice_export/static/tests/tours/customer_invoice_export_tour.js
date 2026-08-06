@@ -237,14 +237,35 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     },
                 },
 
+                // Flow 3 -- Narrow Date Start so the earlier fixture
+                // invoice no longer qualifies. Typed BEFORE either
+                // object-button reload below (Reload Template Policy,
+                // Populate): typing into a field widget while a
+                // type="object" button's own reload is still landing in
+                // the background raced FieldWrapper.commitChanges against
+                // the widget being destroyed and recreated, throwing
+                // "Cannot read properties of null" -- reproduced in CI.
+                // Typing first, before either reload starts, sidesteps
+                // that race entirely.
+                {
+                    content: "Open the Invoices tab",
+                    trigger: ".o_notebook .nav-link:contains(Invoices)",
+                },
+                {
+                    content: "Fill in Date Start",
+                    trigger: ".o_field_widget[name='date_start'] input",
+                    run: "text 02/01/2026",
+                },
+
                 // Flow 5 (Inline Action, Settings/Technical group only) --
                 // on the Policies tab, click Reload Template Policy.
-                // Deliberately sequenced BEFORE Populate (Flow 4) -- see
-                // the detailed comment on the same reordering in the
-                // create tour above (patterns.md skill
-                // odoo-development-ui-test §P "Jebakan turunan": two
-                // type="object" reloads back-to-back race the Save
-                // click that follows).
+                // Deliberately sequenced BEFORE Populate (Flow 4), with no
+                // field interaction between the two -- see the detailed
+                // comment on the same reordering in the create tour above
+                // (patterns.md skill odoo-development-ui-test §P "Jebakan
+                // turunan": two type="object" reloads back-to-back race
+                // the Save click that follows; only a click, never typing,
+                // is safe to place between them and Populate).
                 {
                     content: "Open the Policies tab",
                     trigger: ".o_notebook .nav-link:contains(Policies)",
@@ -263,19 +284,11 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     },
                 },
 
-                // Flow 3 -- Narrow Date Start so the earlier fixture
-                // invoice no longer qualifies.
+                // Flow 4 -- Click Populate to refresh the Invoices list.
                 {
                     content: "Open the Invoices tab",
                     trigger: ".o_notebook .nav-link:contains(Invoices)",
                 },
-                {
-                    content: "Fill in Date Start",
-                    trigger: ".o_field_widget[name='date_start'] input",
-                    run: "text 02/01/2026",
-                },
-
-                // Flow 4 -- Click Populate to refresh the Invoices list.
                 {
                     content: "Click Populate",
                     trigger: ".o_form_view button[name='action_populate']",
