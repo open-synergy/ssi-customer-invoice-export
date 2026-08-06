@@ -88,6 +88,48 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     in_modal: false,
                 },
 
+                // Flow 5 (Inline Action, Settings/Technical group only --
+                // admin qualifies via base.group_system) -- on the
+                // Policies tab, click Reload Template Policy. Deliberately
+                // sequenced BEFORE Populate (Flow 4), not after: both
+                // Populate and Reload Template Policy are type="object"
+                // buttons that auto-save the record then reload it
+                // (form_controller.js _onButtonClicked ->
+                // saveAndExecuteAction, stayInEdit: true) -- clicking
+                // Save immediately after TWO such reloads back-to-back
+                // races the second reload's re-render (patterns.md skill
+                // odoo-development-ui-test §P "Jebakan turunan"): the
+                // Save click can land mid-render and the form gets stuck
+                // in edit mode, timing out at the Post-Condition
+                // (.o_form_view.o_form_readonly) below -- reproduced in
+                // CI on this exact tour. Reload Template Policy has no
+                // reliable "impossible before" content gate of its own
+                // (the template it re-selects is usually the SAME one
+                // already assigned at creation, per IK step 5's own
+                // text), so it is run first, leaving Populate --
+                // whose gate below IS a genuine content token -- as the
+                // last asynchronous action before Save.
+                {
+                    content: "Open the Policies tab",
+                    trigger: ".o_notebook .nav-link:contains(Policies)",
+                },
+                {
+                    content: "Click Reload Template Policy",
+                    trigger: "button[name='action_reload_policy_template']",
+                },
+                {
+                    // Gerbang: same disable/enable idiom as Generate Code
+                    // in customer_invoice_export_type_tour.js. Only a
+                    // partial guarantee (see comment above) -- relied on
+                    // here only because Populate's own robust gate still
+                    // follows before Save.
+                    content: "Reload Template Policy call has completed",
+                    trigger: "button[name='action_reload_policy_template']:enabled",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
                 // Flow 4 -- On the Invoices tab, click Populate.
                 {
                     content: "Open the Invoices tab",
@@ -100,45 +142,18 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                 {
                     // Gerbang: action_populate is a type="object" button
                     // that writes move_ids/line_ids/summary_ids via an
-                    // asynchronous RPC (form_renderer.js
-                    // disableButtons()/enableButtons() bracket the call --
-                    // same mechanism validated for Generate Code in
-                    // customer_invoice_export_type_tour.js). Its own
-                    // ":enabled" state would be a false gate here (it is
-                    // already enabled before the click too), so the real
-                    // token used is the fixture invoice's partner row --
-                    // this row is IMPOSSIBLE in move_ids before Populate
-                    // ever runs, since the document starts with an empty
-                    // move_ids.
+                    // asynchronous RPC. Its own ":enabled" state would be
+                    // a false gate here (it is already enabled before the
+                    // click too), so the real token used is the fixture
+                    // invoice's partner row -- this row is IMPOSSIBLE in
+                    // move_ids before Populate ever runs, since the
+                    // document starts with an empty move_ids. Because
+                    // this token can only appear once the reload has
+                    // actually re-rendered the list, it doubles as the
+                    // "everything has settled" signal before Save below.
                     content: "Populate has filled the Invoices list",
                     trigger:
                         ".o_field_widget[name='move_ids'] .o_data_row:contains(TOUR CIE Create Partner)",
-                    run: function () {
-                        // Assertion only.
-                    },
-                },
-
-                // Flow 5 (Inline Action, Settings/Technical group only --
-                // admin qualifies via base.group_system) -- on the
-                // Policies tab, click Reload Template Policy.
-                {
-                    content: "Open the Policies tab",
-                    trigger: ".o_notebook .nav-link:contains(Policies)",
-                },
-                {
-                    content: "Click Reload Template Policy",
-                    trigger: "button[name='action_reload_policy_template']",
-                },
-                {
-                    // Gerbang: same disable/enable idiom as Generate Code
-                    // in customer_invoice_export_type_tour.js -- this
-                    // button re-selects the matching template (which may
-                    // resolve to the SAME template already assigned), so
-                    // no distinctive new token is available; the
-                    // synchronous disableButtons() on click still makes
-                    // this non-racy.
-                    content: "Reload Template Policy call has completed",
-                    trigger: "button[name='action_reload_policy_template']:enabled",
                     run: function () {
                         // Assertion only.
                     },
@@ -222,6 +237,32 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     },
                 },
 
+                // Flow 5 (Inline Action, Settings/Technical group only) --
+                // on the Policies tab, click Reload Template Policy.
+                // Deliberately sequenced BEFORE Populate (Flow 4) -- see
+                // the detailed comment on the same reordering in the
+                // create tour above (patterns.md skill
+                // odoo-development-ui-test §P "Jebakan turunan": two
+                // type="object" reloads back-to-back race the Save
+                // click that follows).
+                {
+                    content: "Open the Policies tab",
+                    trigger: ".o_notebook .nav-link:contains(Policies)",
+                },
+                {
+                    content: "Click Reload Template Policy",
+                    trigger: "button[name='action_reload_policy_template']",
+                },
+                {
+                    // Gerbang -- lihat catatan gerbang yang sama pada
+                    // tour create di atas.
+                    content: "Reload Template Policy call has completed",
+                    trigger: "button[name='action_reload_policy_template']:enabled",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
                 // Flow 3 -- Narrow Date Start so the earlier fixture
                 // invoice no longer qualifies.
                 {
@@ -248,30 +289,13 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     // narrowed Date Start is actually applied by a fresh
                     // Populate run (same disappearance idiom as the
                     // Archived-filter gates in
-                    // customer_invoice_export_type_tour.js).
+                    // customer_invoice_export_type_tour.js). Because this
+                    // can only be observed once the reload has actually
+                    // re-rendered the list, it doubles as the
+                    // "everything has settled" signal before Save below.
                     content: "Populate has dropped the excluded invoice",
                     trigger:
                         ".o_field_widget[name='move_ids']:not(:has(.o_data_row:contains(TOUR CIE Edit Early Partner)))",
-                    run: function () {
-                        // Assertion only.
-                    },
-                },
-
-                // Flow 5 (Inline Action, Settings/Technical group only) --
-                // on the Policies tab, click Reload Template Policy.
-                {
-                    content: "Open the Policies tab",
-                    trigger: ".o_notebook .nav-link:contains(Policies)",
-                },
-                {
-                    content: "Click Reload Template Policy",
-                    trigger: "button[name='action_reload_policy_template']",
-                },
-                {
-                    // Gerbang -- lihat catatan gerbang yang sama pada
-                    // tour create di atas.
-                    content: "Reload Template Policy call has completed",
-                    trigger: "button[name='action_reload_policy_template']:enabled",
                     run: function () {
                         // Assertion only.
                     },
