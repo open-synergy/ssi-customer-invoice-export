@@ -468,6 +468,20 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_type_tour", fun
                         this.$anchor[0].click();
                     },
                 },
+                {
+                    // Gerbang: tunggu facet Archived benar-benar
+                    // tertandai sebelum lanjut. `aria-checked` adalah
+                    // atribut HTML sungguhan yang di-toggle Owl secara
+                    // sinkron (bukan seperti `.val()` pada `<input>`,
+                    // yang hanya properti JS) -- terbukti tercermin andal
+                    // di DOM lewat dump kegagalan CI sebelumnya.
+                    content: "Archived filter is checked",
+                    trigger:
+                        ".o_filter_menu .o_menu_item a:contains(Archived)[aria-checked='true']",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
 
                 // Flow 3 -- Select the record to reactivate (checkbox).
                 {
@@ -492,6 +506,23 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_type_tour", fun
                             }
                         );
                         $unarchive[0].click();
+                    },
+                },
+                {
+                    // Gerbang: tunggu RPC action_unarchive + reload list
+                    // selesai sebelum menyentuh filter lagi. Uji lakmus:
+                    // selector ini TIDAK mungkin cocok sebelum Unarchive
+                    // diklik -- list sedang menampilkan HANYA record
+                    // arsip (Archived filter aktif), dan record ini ADA
+                    // di sana (baru dipilih pada step sebelumnya). Ia
+                    // hanya bisa lenyap dari list arsip SESUDAH
+                    // Unarchive benar-benar mengubah `active` jadi True
+                    // di server dan list-nya reload.
+                    content: "Record list has refreshed after Unarchive",
+                    trigger:
+                        ".o_list_view:not(:has(.o_data_row:contains(TOUR CIET Activate)))",
+                    run: function () {
+                        // Assertion only.
                     },
                 },
 
@@ -520,10 +551,28 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_type_tour", fun
                     },
                 },
                 {
+                    // Trigger menyebut `[aria-checked='true']` -- bukan
+                    // sekadar `a:contains(Archived)` -- agar step ini
+                    // hanya konsumsi begitu dropdown benar-benar
+                    // ter-render ulang dengan state facet yang
+                    // diharapkan (mencegah klik pada re-render Owl yang
+                    // masih basi sesudah dropdown dibuka ulang).
                     content: "Disable the Archived filter",
-                    trigger: ".o_filter_menu .o_menu_item a:contains(Archived)",
+                    trigger:
+                        ".o_filter_menu .o_menu_item a:contains(Archived)[aria-checked='true']",
                     run: function () {
                         this.$anchor[0].click();
+                    },
+                },
+                {
+                    // Gerbang simetris dengan "Archived filter is
+                    // checked" di atas -- tunggu facet benar-benar
+                    // tertandai lepas sebelum meng-assert Post-Condition.
+                    content: "Archived filter is unchecked",
+                    trigger:
+                        ".o_filter_menu .o_menu_item a:contains(Archived)[aria-checked='false']",
+                    run: function () {
+                        // Assertion only.
                     },
                 },
 
