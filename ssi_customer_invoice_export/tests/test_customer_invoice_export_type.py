@@ -9,5 +9,8 @@ from odoo.tests import tagged
 
 @tagged("post_install", "-at_install")
 class TestCustomerInvoiceExportType(YamlTransactionCase):
+    """Cover CRUD and default values for ``customer_invoice_export_type``."""
+
     def test_customer_invoice_export_type(self):
+        """Run the master data CRUD scenario for the export Type."""
         self.run_yaml_scenario("test_data_customer_invoice_export_type.yaml")

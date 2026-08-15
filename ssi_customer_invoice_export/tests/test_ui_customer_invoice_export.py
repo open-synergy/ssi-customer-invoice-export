@@ -2,22 +2,21 @@
 # Copyright 2026 PT. Simetri Sinergi Indonesia
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-from odoo.tests import HttpCase, tagged
+from odoo.tests import tagged
+from odoo.tests.common import HttpSavepointCase
 
 
 @tagged("post_install", "-at_install")
-class TestUiCustomerInvoiceExport(HttpCase):
+class TestUiCustomerInvoiceExport(HttpSavepointCase):
     """UI/UX tour tests for ``customer_invoice_export``.
 
     Every ``test_*`` method below runs the tour pairing with the IK file
     named in its docstring (``docs/customer_invoice_export/NN-*.md``).
     Pre-Condition data required by each IK is prepared here in Python --
-    never through UI steps. ``HttpCase`` (via ``TransactionCase``) only
-    exposes ``self.env`` per test method -- unlike ``SavepointCase``, it
-    has no ``cls.env`` at ``setUpClass`` time -- so all fixtures below
-    are built in instance-level ``setUp`` instead (same constraint
-    already documented in
-    ``test_ui_customer_invoice_export_type.py``, this module).
+    never through UI steps. Fixtures are built in instance-level
+    ``setUp`` (rolled back after each test method), matching the
+    structure already used in
+    ``test_ui_customer_invoice_export_type.py``, this module.
     """
 
     def setUp(self):

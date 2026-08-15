@@ -244,6 +244,12 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
 
     @api.depends("type_id")
     def _compute_allowed_journal_ids(self):
+        """Resolve the journals allowed by the document's Type.
+
+        Delegates to the many2one configurator filter defined on
+        ``type_id`` (selection method, manual recordset, domain, or
+        Python code).
+        """
         for record in self:
             result = False
             if record.type_id:
@@ -258,6 +264,12 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
 
     @api.depends("type_id")
     def _compute_allowed_partner_ids(self):
+        """Resolve the partners allowed by the document's Type.
+
+        Delegates to the many2one configurator filter defined on
+        ``type_id`` (selection method, manual recordset, domain, or
+        Python code).
+        """
         for record in self:
             result = False
             if record.type_id:
@@ -272,6 +284,12 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
 
     @api.depends("type_id")
     def _compute_allowed_product_ids(self):
+        """Resolve the products allowed by the document's Type.
+
+        Delegates to the many2one configurator filter defined on
+        ``type_id`` (selection method, manual recordset, domain, or
+        Python code).
+        """
         for record in self:
             result = False
             if record.type_id:
@@ -295,10 +313,24 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
     # -------------------------------------------------------------------
 
     def action_populate(self):
+        """Populate the document with qualifying invoices and lines.
+
+        Runs each record's ``_populate`` under ``sudo`` so users without
+        direct access to ``account.move``/``account.move.line`` can still
+        trigger the selection from the button.
+        """
         for record in self.sudo():
             record._populate()
 
     def _populate(self):
+        """Select qualifying invoices/lines and (re)build Summary rows.
+
+        Searches ``account.move`` with ``_prepare_invoice_domain``, keeps
+        only the lines matching the Type's product criteria
+        (``_get_qualifying_lines``), groups them per
+        ``_get_summary_grouping_key``, and replaces ``summary_ids`` with
+        one row per group.
+        """
         self.ensure_one()
         moves = self.env["account.move"].search(self._prepare_invoice_domain())
         self.move_ids = [(6, 0, moves.ids)]
@@ -383,6 +415,14 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         return domain
 
     def _get_qualifying_lines(self, move):
+        """Filter ``move``'s invoice lines by the Type's product criteria.
+
+        Excludes display lines (section/note) and keeps only lines whose
+        product is in ``allowed_product_ids``.
+
+        :param move: an ``account.move`` record
+        :return: an ``account.move.line`` recordset
+        """
         self.ensure_one()
         return move.invoice_line_ids.filtered(
             lambda line: not line.display_type
@@ -390,6 +430,16 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         )
 
     def _prepare_summary_data(self, moves, qualifying_lines, sequence):
+        """Build the ``customer_invoice_export.summary`` values for a group.
+
+        Extension point: override in a glue module to add fields to the
+        Summary row without touching ``_populate``.
+
+        :param moves: the ``account.move`` records aggregated in this row
+        :param qualifying_lines: their qualifying ``account.move.line``
+        :param sequence: sequence number for the row's ordering
+        :return: dict of ``customer_invoice_export.summary`` values
+        """
         self.ensure_one()
         return {
             "export_id": self.id,
@@ -406,6 +456,11 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
 
     @ssi_decorator.post_queue_done_action()
     def _01_generate_export_on_queue_done(self):
+        """Queue ``_generate_export_file`` when reaching ``queue_done``.
+
+        Runs asynchronously via ``queue_job`` so file rendering (and any
+        slow parser code) does not block the state transition.
+        """
         self.ensure_one()
         description = "Generate export file for %s" % (self.name or self.id)
         self.with_context(job_batch=self.done_queue_job_batch_id).with_delay(
@@ -413,6 +468,16 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         )._generate_export_file()
 
     def _generate_export_file(self):
+        """Render the export file from ``summary_ids`` and store it.
+
+        Runs the Type's parser code (``_run_parser``), renders it to the
+        document's Output Format (``_render_output``), writes the result
+        to ``export_file``/``export_filename``, and creates a matching
+        attachment. Idempotent: does nothing if ``export_file`` is
+        already set.
+
+        :raises UserError: if there are no Summary rows to export
+        """
         self.ensure_one()
         if self.export_file:
             return
@@ -440,6 +505,17 @@ Solution: Populate the document with qualifying invoices before queueing to done
         self._create_export_attachment(output, filename)
 
     def _run_parser(self):
+        """Execute the Type's Parser Python Code and return its rows.
+
+        Runs ``ptype.parser_python_code`` through ``safe_eval`` with a
+        localdict exposing ``env``, ``document`` (self), ``summary_ids``,
+        ``move_ids``, ``line_ids``, and an output variable ``result``
+        that the code must assign a list of rows to.
+
+        :return: list of rows produced by the parser code
+        :raises UserError: if the code raises, or does not assign a
+            list to ``result``
+        """
         self.ensure_one()
         ptype = self.type_id
         localdict = {
@@ -486,6 +562,11 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
         return result
 
     def _render_output(self, rows):
+        """Dispatch ``rows`` to the renderer for the document's format.
+
+        :param rows: list of rows returned by ``_run_parser``
+        :return: file content as ``bytes``
+        """
         self.ensure_one()
         if self.output_format == "csv":
             return self._render_csv(rows)
@@ -494,6 +575,11 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
         return self._render_txt(rows)
 
     def _render_csv(self, rows):
+        """Render ``rows`` as a CSV file using the Type's CSV settings.
+
+        :param rows: list of rows returned by ``_run_parser``
+        :return: CSV file content as ``bytes``
+        """
         self.ensure_one()
         ptype = self.type_id
         buffer = io.StringIO()
@@ -506,6 +592,11 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
         return buffer.getvalue().encode(ptype.file_encoding or "utf-8")
 
     def _render_xlsx(self, rows):
+        """Render ``rows`` as an XLSX file using the Type's sheet name.
+
+        :param rows: list of rows returned by ``_run_parser``
+        :return: XLSX file content as ``bytes``
+        """
         self.ensure_one()
         ptype = self.type_id
         workbook = openpyxl.Workbook()
@@ -518,6 +609,14 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
         return buffer.getvalue()
 
     def _render_txt(self, rows):
+        """Render ``rows`` as a delimited text file.
+
+        Joins each row's cells with the Type's Field Separator and each
+        row with a newline.
+
+        :param rows: list of rows returned by ``_run_parser``
+        :return: text file content as ``bytes``
+        """
         self.ensure_one()
         ptype = self.type_id
         separator = ptype.txt_field_separator or ""
@@ -525,18 +624,41 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
         return "\n".join(lines).encode(ptype.file_encoding or "utf-8")
 
     def _build_export_filename(self):
+        """Build the export file name from the document Name and format.
+
+        Falls back to ``export_<id>`` when the document has no Name yet
+        (sequence not assigned).
+
+        :return: file name including its extension
+        :rtype: str
+        """
         self.ensure_one()
         extension = OUTPUT_FORMAT_EXTENSION.get(self.output_format, "csv")
         base = self.name if self.name and self.name != "/" else "export_%s" % self.id
         return "%s.%s" % (base, extension)
 
     def _create_export_attachment(self, output, filename):
+        """Create an ``ir.attachment`` holding the generated export file.
+
+        :param output: file content as ``bytes``
+        :param filename: file name including its extension
+        """
         self.ensure_one()
         self.env["ir.attachment"].create(
             self._prepare_export_attachment_data(output, filename)
         )
 
     def _prepare_export_attachment_data(self, output, filename):
+        """Build the ``ir.attachment`` values for the generated file.
+
+        Extension point: override in a glue module to add fields (e.g.
+        a related document link) without touching
+        ``_create_export_attachment``.
+
+        :param output: file content as ``bytes``
+        :param filename: file name including its extension
+        :return: dict of ``ir.attachment`` values
+        """
         self.ensure_one()
         return {
             "name": filename,

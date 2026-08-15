@@ -10,6 +10,15 @@ from odoo.tests import Form, tagged
 
 @tagged("post_install", "-at_install")
 class TestCustomerInvoiceExport(YamlTransactionCase):
+    """Cover ``customer_invoice_export``: populate, render, workflow.
+
+    Pure Python throughout -- trigger P10 (L-09, L-10: building a valid
+    posted customer invoice needs a conditional search-or-create step
+    for the income/temp account and, for the "fully paid" case, a bank
+    journal plus a ``reconcile()`` call, none of which a single EVAL:
+    expression can express).
+    """
+
     # -------------------------------------------------------------------
     # Shared setup helpers.
     #
@@ -23,6 +32,7 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def _get_income_account(self):
+        """Return an income account, creating one if none exists yet."""
         account_type = self.env.ref("account.data_account_type_revenue")
         account = self.env["account.account"].search(
             [
@@ -43,20 +53,25 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         return account
 
     def _get_sale_journal(self):
-        # Always create a dedicated journal rather than reusing/searching an
-        # existing one -- demo data may already contain posted, unpaid
-        # customer invoices in a shared default sale journal, which would
-        # leak into this test's Populate results.
+        """Create a dedicated sale journal for this test.
+
+        Always creates a new one rather than reusing/searching an
+        existing one -- demo data may already contain posted, unpaid
+        customer invoices in a shared default sale journal, which would
+        leak into this test's Populate results.
+        """
         return self.env["account.journal"].create(
             {"name": "Test Sales Journal", "type": "sale", "code": "TSJ"}
         )
 
     def _get_bank_journal(self):
+        """Create a dedicated bank journal used to pay an invoice."""
         return self.env["account.journal"].create(
             {"name": "Test Bank Journal", "type": "bank", "code": "TBNK"}
         )
 
     def _create_product(self, name, income_account):
+        """Create a service product posting to ``income_account``."""
         return self.env["product.product"].create(
             {
                 "name": name,
@@ -66,6 +81,14 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         )
 
     def _create_invoice(self, partner, journal, lines, invoice_date):
+        """Create and post a customer invoice with the given lines.
+
+        :param partner: ``res.partner`` invoiced
+        :param journal: ``account.journal`` (type ``sale``) used
+        :param lines: list of ``(product, price_unit)`` tuples
+        :param invoice_date: invoice date string
+        :return: the posted ``account.move``
+        """
         move = self.env["account.move"].create(
             {
                 "move_type": "out_invoice",
@@ -92,6 +115,11 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         return move
 
     def _pay_invoice_fully(self, invoice, bank_journal):
+        """Register and reconcile a full payment for ``invoice``.
+
+        :param invoice: the posted ``account.move`` to pay
+        :param bank_journal: ``account.journal`` (type ``bank``) used
+        """
         payment_method = self.env.ref("account.account_payment_method_manual_in")
         payment = self.env["account.payment"].create(
             {
@@ -113,6 +141,13 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         invoice.invalidate_cache()
 
     def _create_export_type(self, journal, product_a, **extra_values):
+        """Create a Type restricted to ``journal`` and ``product_a``.
+
+        :param journal: ``account.journal`` set as the only allowed one
+        :param product_a: ``product.product`` set as the only allowed one
+        :param extra_values: additional field values overriding defaults
+        :return: the created ``customer_invoice_export_type``
+        """
         values = {
             "name": "Test Export Type",
             "code": "TEXP001",
@@ -130,9 +165,14 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         return self.env["customer_invoice_export_type"].create(values)
 
     def _create_minimal_export_type(self, **extra_values):
-        # No journal/product/partner criteria needed -- used for
-        # source_move_ids scenarios, where those criteria are bypassed
-        # entirely by _prepare_invoice_domain.
+        """Create a Type with no journal/product/partner criteria.
+
+        Used for ``source_move_ids`` scenarios, where those criteria
+        are bypassed entirely by ``_prepare_invoice_domain``.
+
+        :param extra_values: additional field values overriding defaults
+        :return: the created ``customer_invoice_export_type``
+        """
         values = {
             "name": "Test Minimal Export Type",
             "code": "TMIN001",
@@ -143,6 +183,7 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         return self.env["customer_invoice_export_type"].create(values)
 
     def _get_temp_account(self):
+        """Return a current-assets account, creating one if needed."""
         account_type = self.env.ref("account.data_account_type_current_assets")
         account = self.env["account.account"].search(
             [
@@ -163,17 +204,28 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         return account
 
     def _get_general_journal(self):
+        """Create a dedicated general journal for journal-entry moves."""
         return self.env["account.journal"].create(
             {"name": "Test General Journal", "type": "general", "code": "TGEN"}
         )
 
     def _create_journal_entry(self, journal, amount, date, post=True):
-        # A move_type="entry" move -- never shaped like a standard Odoo
-        # customer invoice: no partner_id/invoice_date/invoice_line_ids
-        # semantics, and payment_state is always False (core
-        # account_move.py: "not_paid" only applies when move_type !=
-        # "entry"). Used to prove _prepare_invoice_domain's
-        # source_move_ids branch bypasses the invoice-shaped criteria.
+        """Create a plain ``move_type="entry"`` journal entry.
+
+        Never shaped like a standard Odoo customer invoice: no
+        ``partner_id``/``invoice_date``/``invoice_line_ids`` semantics,
+        and ``payment_state`` is always ``False`` (core
+        ``account_move.py``: ``"not_paid"`` only applies when
+        ``move_type != "entry"``). Used to prove
+        ``_prepare_invoice_domain``'s ``source_move_ids`` branch
+        bypasses the invoice-shaped criteria.
+
+        :param journal: ``account.journal`` (type ``general``) used
+        :param amount: debit/credit amount of the two balancing lines
+        :param date: move date string
+        :param post: whether to post the move before returning it
+        :return: the created ``account.move``
+        """
         income_account = self._get_income_account()
         temp_account = self._get_temp_account()
         move = self.env["account.move"].create(
@@ -214,6 +266,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_onchange_output_format_from_type(self):
+        """Assert ``output_format`` defaults from the selected Type.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Onchange Product A", income_account)
@@ -228,6 +286,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_populate_filters_by_product_journal_and_date(self):
+        """Assert Populate excludes paid invoices, other products, dates.
+
+        Pure Python -- trigger P10 (L-09, L-10: building a fully paid
+        invoice needs a bank journal and a ``reconcile()`` call, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         bank_journal = self._get_bank_journal()
         income_account = self._get_income_account()
@@ -269,6 +333,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(export_doc.move_ids, invoice_2)
 
     def test_populate_idempotent(self):
+        """Assert calling Populate twice does not duplicate Summary rows.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Idempotent Product A", income_account)
@@ -290,6 +360,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_populate_with_source_move_ids_bypasses_invoice_criteria(self):
+        """Assert ``source_move_ids`` bypasses the invoice-shaped domain.
+
+        Pure Python -- trigger P10 (L-09, L-10: building a plain
+        journal-entry move with balancing lines needs real control flow,
+        impossible in a single EVAL: expression).
+        """
         journal = self._get_general_journal()
         ctype = self._create_minimal_export_type()
         move = self._create_journal_entry(journal, 100.0, "2026-01-10")
@@ -310,6 +386,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(export_doc.move_ids, move)
 
     def test_populate_without_source_move_ids_keeps_legacy_domain(self):
+        """Assert an empty ``source_move_ids`` keeps the standard domain.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Legacy Domain Product A", income_account)
@@ -328,6 +410,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(export_doc.move_ids, invoice)
 
     def test_populate_with_source_move_ids_excludes_non_posted(self):
+        """Assert a draft ``source_move_ids`` move is never selected.
+
+        Pure Python -- trigger P10 (L-09, L-10: building a plain
+        journal-entry move with balancing lines needs real control flow,
+        impossible in a single EVAL: expression).
+        """
         journal = self._get_general_journal()
         ctype = self._create_minimal_export_type()
         draft_move = self._create_journal_entry(
@@ -353,12 +441,25 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_default_type_grouping_method_is_invoice(self):
+        """Assert the Type's Grouping Method defaults to "invoice".
+
+        Pure Python -- co-located with the rest of this file's Populate
+        coverage (P10, L-09/L-10: the file's fixtures need real control
+        flow, impossible in a single EVAL: expression) rather than split
+        into a separate YAML-only test file.
+        """
         ctype = self.env["customer_invoice_export_type"].create(
             {"name": "Default Grouping Type", "code": "TGRP000"}
         )
         self.assertEqual(ctype.grouping_method, "invoice")
 
     def test_populate_grouping_invoice_one_row_per_invoice(self):
+        """Assert grouping "invoice" creates one Summary row per move.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Grouping Product A", income_account)
@@ -390,6 +491,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(summary_2.amount_total, 150.0)
 
     def test_populate_grouping_partner_merges_same_partner_invoices(self):
+        """Assert grouping "partner" merges same-partner invoices.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Merge Product A", income_account)
@@ -420,6 +527,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(set(summary.line_ids.ids), set(qualifying_lines.ids))
 
     def test_populate_grouping_partner_does_not_merge_different_partners(self):
+        """Assert grouping "partner" keeps different partners separate.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Distinct Product A", income_account)
@@ -452,6 +565,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         )
 
     def test_populate_grouping_partner_skips_invoice_without_qualifying_lines(self):
+        """Assert an invoice with no qualifying lines gets no Summary row.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Skip Product A", income_account)
@@ -472,6 +591,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertIn(non_qualifying_invoice, export_doc.move_ids)
 
     def test_populate_grouping_partner_idempotent(self):
+        """Assert Populate stays idempotent under partner grouping too.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Idempotent Partner Product A", income_account)
@@ -494,6 +619,13 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_default_type_partner_criteria(self):
+        """Assert the Type's default partner criteria allow everyone.
+
+        Pure Python -- co-located with the rest of this file's partner
+        criteria coverage (P10, L-09/L-10: the file's fixtures need real
+        control flow, impossible in a single EVAL: expression) rather
+        than split into a separate YAML-only test file.
+        """
         ctype = self.env["customer_invoice_export_type"].create(
             {"name": "Default Partner Criteria Type", "code": "TPTN000"}
         )
@@ -502,6 +634,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(ctype.partner_python_code, "result = []")
 
     def test_allowed_partner_ids_computed_from_type(self):
+        """Assert ``allowed_partner_ids`` recomputes when Type changes.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Allowed Partner Product A", income_account)
@@ -527,6 +665,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         )
 
     def test_populate_filters_by_partner(self):
+        """Assert Populate excludes invoices of a disallowed partner.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Partner Filter Product A", income_account)
@@ -557,6 +701,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(export_doc.summary_ids.partner_id, partner_1)
 
     def test_populate_partner_domain_allows_every_partner(self):
+        """Assert the default "[]" partner domain still allows everyone.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Partner Domain Product A", income_account)
@@ -586,6 +736,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_render_csv_and_txt(self):
+        """Assert ``_render_output`` bytes for CSV and TXT formats.
+
+        Pure Python -- trigger P1 (L-01: ``_render_output``'s return
+        value -- the encoded file bytes -- is discarded by ``action:
+        call`` and cannot be asserted from YAML).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Render Product A", income_account)
@@ -611,6 +767,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         )
 
     def test_generate_export_file_without_summary_raises(self):
+        """Assert ``_generate_export_file`` raises with no Summary rows.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("NoSummary Product A", income_account)
@@ -627,6 +789,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_workflow_to_done_generates_export_file(self):
+        """Assert draft->confirm->queue_done->done generates the file.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Workflow Product A", income_account)
@@ -667,6 +835,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     # -------------------------------------------------------------------
 
     def test_form_view_move_ids_subview_declares_state(self):
+        """Assert the ``move_ids`` subview arch declares "state".
+
+        Pure Python -- trigger P1 (L-01, L-02: ``fields_view_get``'s
+        return dict cannot be captured or asserted by dotted ``getattr``
+        from YAML).
+        """
         view = self.env.ref(
             "ssi_customer_invoice_export.customer_invoice_export_view_form"
         )
@@ -679,6 +853,12 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertIn("state", move_ids_subview_fields)
 
     def test_form_view_renders_with_populated_moves(self):
+        """Assert the populated ``move_ids`` subview fields are readable.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("FormView Product A", income_account)
@@ -705,6 +885,13 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         )
 
     def test_cancel_from_draft_and_restart(self):
+        """Assert cancel from draft, then restart back to draft.
+
+        Pure Python -- co-located with the rest of this file's workflow
+        coverage (P10, L-09/L-10: the file's fixtures need real control
+        flow, impossible in a single EVAL: expression) rather than split
+        into a separate YAML-only test file.
+        """
         journal = self._get_sale_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Cancel Product A", income_account)
