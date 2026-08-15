@@ -122,6 +122,15 @@
                             <field name="currency_id" invisible="1" />
                             <field name="amount_total" sum="Total" />
                         </tree>
+                        <form>
+                            <group name="summary_group_1">
+                                <field name="sequence" />
+                                <field name="move_ids" widget="many2many_tags" />
+                                <field name="partner_id" />
+                                <field name="currency_id" invisible="1" />
+                                <field name="amount_total" />
+                            </group>
+                        </form>
                     </field>
                 </page>
                 <page name="export_file" string="Export File">

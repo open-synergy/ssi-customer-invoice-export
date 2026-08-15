@@ -72,5 +72,6 @@ class CustomerInvoiceExportSummary(models.Model):
 
     @api.depends("line_ids", "line_ids.price_subtotal")
     def _compute_amount_total(self):
+        """Sum the subtotal of this row's qualifying invoice lines."""
         for record in self:
             record.amount_total = sum(record.line_ids.mapped("price_subtotal"))

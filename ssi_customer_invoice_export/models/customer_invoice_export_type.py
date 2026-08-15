@@ -256,6 +256,11 @@ class CustomerInvoiceExportType(models.Model):
     )
 
     def _get_csv_delimiter_character(self):
+        """Resolve the actual delimiter character for ``csv_delimiter``.
+
+        :return: single delimiter character, comma by default
+        :rtype: str
+        """
         self.ensure_one()
         return {
             "comma": ",",

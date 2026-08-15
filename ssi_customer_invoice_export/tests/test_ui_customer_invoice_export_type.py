@@ -2,11 +2,12 @@
 # Copyright 2026 PT. Simetri Sinergi Indonesia
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-from odoo.tests import HttpCase, tagged
+from odoo.tests import tagged
+from odoo.tests.common import HttpSavepointCase
 
 
 @tagged("post_install", "-at_install")
-class TestUiCustomerInvoiceExportType(HttpCase):
+class TestUiCustomerInvoiceExportType(HttpSavepointCase):
     """UI/UX tour tests for ``customer_invoice_export_type``.
 
     Every ``test_*`` method below runs the tour pairing with the IK file
@@ -18,10 +19,8 @@ class TestUiCustomerInvoiceExportType(HttpCase):
     def setUp(self):
         """Grant the type group and create the fixtures the tours edit.
 
-        ``HttpCase`` (via ``TransactionCase``) only exposes ``self.env`` per
-        test method -- unlike ``SavepointCase``, it has no ``cls.env`` at
-        ``setUpClass`` time -- so Pre-Condition data is prepared here
-        instead. The menu is gated by
+        Pre-Condition data is prepared here, in instance-level ``setUp``
+        (rolled back after each test method). The menu is gated by
         ``customer_invoice_export_type_group``; the group's security data
         already includes ``base.user_admin``, but the grant is repeated
         explicitly here so the tour keeps working even if that default
