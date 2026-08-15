@@ -20,8 +20,8 @@
     "data": [
         "security/res_group/customer_invoice_export.xml",
         "security/ir_rule/customer_invoice_export.xml",
-        "view/customer_invoice_export.xml",
+        "views/customer_invoice_export.xml",
         # Tests
-        "view/assets.xml",
+        "views/assets.xml",
     ],
 }
