@@ -2,11 +2,12 @@
 # Copyright 2026 PT. Simetri Sinergi Indonesia
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-from odoo.tests import HttpCase, tagged
+from odoo.tests import tagged
+from odoo.tests.common import HttpSavepointCase
 
 
 @tagged("post_install", "-at_install")
-class TestUiCustomerInvoiceExportOperatingUnit(HttpCase):
+class TestUiCustomerInvoiceExportOperatingUnit(HttpSavepointCase):
     """UI/UX tour test for the Operating Unit delta on the document.
 
     The single ``test_*`` method below runs the tour pairing with the IK
@@ -20,12 +21,11 @@ class TestUiCustomerInvoiceExportOperatingUnit(HttpCase):
     def setUp(self):
         """Grant the OU groups and create the fixtures the tour selects.
 
-        ``HttpCase`` (via ``TransactionCase``) only exposes ``self.env``
-        per test method -- unlike ``SavepointCase``, it has no
-        ``cls.env`` at ``setUpClass`` time (``odoo/tests/common.py``) --
-        so Pre-Condition data is prepared here instead, mirroring
+        Pre-Condition data is prepared here, in instance-level
+        ``setUp`` (rolled back after each test method), mirroring
         ``ssi_customer_invoice_export``'s
-        ``test_ui_customer_invoice_export_type.py``. The tour user needs
+        ``test_ui_customer_invoice_export_type.py`` and
+        ``test_ui_customer_invoice_export.py``. The tour user needs
         both ``operating_unit.group_multi_operating_unit`` (renders the
         Operating Unit field) and this module's
         ``customer_invoice_export_ou_group`` (the data-ownership group
