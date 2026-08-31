@@ -270,7 +270,9 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
             move.action_post()
         return move
 
-    def _create_journal_entry_with_product(self, journal, product, amount, date):
+    def _create_journal_entry_with_product(
+        self, journal, product, amount, date, partner
+    ):
         """Create a posted ``move_type="entry"`` entry with a product.
 
         Mirrors ``_create_journal_entry`` but attaches ``product`` to
@@ -279,11 +281,16 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         never invoice-shaped (``invoice_date`` stays NULL). Used to
         prove the Populate date range (issue #38) filters
         ``source_move_ids`` moves on ``date``, not ``invoice_date``.
+        ``partner`` is required: ``customer_invoice_export_summary
+        .partner_id`` is ``required=True`` and ``_prepare_summary_data``
+        copies it from ``moves[0].partner_id``, so an entry without a
+        partner makes Summary creation violate the NOT NULL constraint.
 
         :param journal: ``account.journal`` (type ``general``) used
         :param product: ``product.product`` set on the credit line
         :param amount: debit/credit amount of the two balancing lines
         :param date: move date string
+        :param partner: ``res.partner`` set on the move
         :return: the posted ``account.move``
         """
         income_account = self._get_income_account()
@@ -293,6 +300,7 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
                 "move_type": "entry",
                 "journal_id": journal.id,
                 "date": date,
+                "partner_id": partner.id,
                 "line_ids": [
                     (
                         0,
@@ -514,9 +522,10 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         journal = self._get_general_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Entry In-Range Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "Entry In-Range Partner"})
         ctype = self._create_export_type(journal, product_a)
         move = self._create_journal_entry_with_product(
-            journal, product_a, 100.0, "2026-09-15"
+            journal, product_a, 100.0, "2026-09-15", partner
         )
         self.assertEqual(move.move_type, "entry")
         self.assertFalse(move.invoice_date)
@@ -551,9 +560,10 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         journal = self._get_general_journal()
         income_account = self._get_income_account()
         product_a = self._create_product("Entry Out-Of-Range Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "Entry Out-Of-Range Partner"})
         ctype = self._create_export_type(journal, product_a)
         move = self._create_journal_entry_with_product(
-            journal, product_a, 100.0, "2026-08-15"
+            journal, product_a, 100.0, "2026-08-15", partner
         )
 
         export_doc = self.env["customer_invoice_export"].create(
