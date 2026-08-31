@@ -122,9 +122,9 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         readonly=True,
         states={"draft": [("readonly", False)]},
         help=(
-            "Lower bound (inclusive) on invoice date used to auto-select "
-            "invoices. Leave empty together with Date End to select "
-            "invoices regardless of date."
+            "Lower bound (inclusive) on the accounting date (account.move "
+            "'date') used to auto-select invoices. Leave empty together "
+            "with Date End to select invoices regardless of date."
         ),
     )
     date_end = fields.Date(
@@ -132,9 +132,9 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         readonly=True,
         states={"draft": [("readonly", False)]},
         help=(
-            "Upper bound (inclusive) on invoice date used to auto-select "
-            "invoices. Leave empty together with Date Start to select "
-            "invoices regardless of date."
+            "Upper bound (inclusive) on the accounting date (account.move "
+            "'date') used to auto-select invoices. Leave empty together "
+            "with Date Start to select invoices regardless of date."
         ),
     )
     output_format = fields.Selection(
@@ -409,9 +409,9 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
                 ("partner_id", "in", self.allowed_partner_ids.ids),
             ]
         if self.date_start:
-            domain.append(("invoice_date", ">=", self.date_start))
+            domain.append(("date", ">=", self.date_start))
         if self.date_end:
-            domain.append(("invoice_date", "<=", self.date_end))
+            domain.append(("date", "<=", self.date_end))
         return domain
 
     def _get_qualifying_lines(self, move):
