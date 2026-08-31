@@ -83,10 +83,18 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
     def _create_invoice(self, partner, journal, lines, invoice_date):
         """Create and post a customer invoice with the given lines.
 
+        Sets both ``invoice_date`` and ``date`` to ``invoice_date``.
+        ORM ``create()`` (unlike the web client onchange) never derives
+        ``date`` from ``invoice_date``, so it defaults to today's date
+        unless set explicitly -- and ``_prepare_invoice_domain`` filters
+        the Populate date range on ``date``, not ``invoice_date``
+        (issue #38). Leaving ``date`` unset would make fixtures built
+        with this helper silently fail date-range assertions.
+
         :param partner: ``res.partner`` invoiced
         :param journal: ``account.journal`` (type ``sale``) used
         :param lines: list of ``(product, price_unit)`` tuples
-        :param invoice_date: invoice date string
+        :param invoice_date: invoice date string, also used as ``date``
         :return: the posted ``account.move``
         """
         move = self.env["account.move"].create(
@@ -94,6 +102,7 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
                 "move_type": "out_invoice",
                 "partner_id": partner.id,
                 "invoice_date": invoice_date,
+                "date": invoice_date,
                 "journal_id": journal.id,
                 "invoice_line_ids": [
                     (
@@ -261,6 +270,57 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
             move.action_post()
         return move
 
+    def _create_journal_entry_with_product(self, journal, product, amount, date):
+        """Create a posted ``move_type="entry"`` entry with a product.
+
+        Mirrors ``_create_journal_entry`` but attaches ``product`` to
+        the credit line, so the move carries a qualifying line under
+        ``_get_qualifying_lines``'s product criterion even though it is
+        never invoice-shaped (``invoice_date`` stays NULL). Used to
+        prove the Populate date range (issue #38) filters
+        ``source_move_ids`` moves on ``date``, not ``invoice_date``.
+
+        :param journal: ``account.journal`` (type ``general``) used
+        :param product: ``product.product`` set on the credit line
+        :param amount: debit/credit amount of the two balancing lines
+        :param date: move date string
+        :return: the posted ``account.move``
+        """
+        income_account = self._get_income_account()
+        temp_account = self._get_temp_account()
+        move = self.env["account.move"].create(
+            {
+                "move_type": "entry",
+                "journal_id": journal.id,
+                "date": date,
+                "line_ids": [
+                    (
+                        0,
+                        0,
+                        {
+                            "account_id": income_account.id,
+                            "product_id": product.id,
+                            "name": "Credit Line",
+                            "debit": 0.0,
+                            "credit": amount,
+                        },
+                    ),
+                    (
+                        0,
+                        0,
+                        {
+                            "account_id": temp_account.id,
+                            "name": "Debit Line",
+                            "debit": amount,
+                            "credit": 0.0,
+                        },
+                    ),
+                ],
+            }
+        )
+        move.action_post()
+        return move
+
     # -------------------------------------------------------------------
     # Onchange (Form API)
     # -------------------------------------------------------------------
@@ -327,7 +387,7 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         summary_1 = export_doc.summary_ids.filtered(lambda s: invoice_1 in s.move_ids)
         self.assertEqual(summary_1.amount_total, 100.0)
 
-        # date_start filters out invoice_1 (invoice_date 2026-01-10)
+        # date_start filters out invoice_1 (date 2026-01-10)
         export_doc.write({"date_start": "2026-02-01"})
         export_doc.action_populate()
         self.assertEqual(export_doc.move_ids, invoice_2)
@@ -434,6 +494,81 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         export_doc.action_populate()
 
         self.assertNotIn(draft_move, export_doc.move_ids)
+        self.assertFalse(export_doc.summary_ids)
+
+    def test_populate_date_range_filters_entry_move_by_date_not_invoice_date(self):
+        """Assert the date range selects a ``source_move_ids`` entry
+        move by ``date``, even though its ``invoice_date`` is NULL.
+
+        Regression test for issue #38: ``_prepare_invoice_domain``
+        used to filter on ``invoice_date``, which is always NULL for
+        ``move_type="entry"`` moves (the shape produced by the School
+        Enrollment/Admission glue via ``source_move_ids``). In
+        PostgreSQL, ``NULL >= '<date>'`` evaluates to NULL, so every
+        such move was silently discarded and ``action_populate`` never
+        produced a Summary row. This test must fail on the pre-fix
+        code. Pure Python -- trigger P10 (L-09, L-10: building a plain
+        journal-entry move with balancing lines needs real control
+        flow, impossible in a single EVAL: expression).
+        """
+        journal = self._get_general_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Entry In-Range Product A", income_account)
+        ctype = self._create_export_type(journal, product_a)
+        move = self._create_journal_entry_with_product(
+            journal, product_a, 100.0, "2026-09-15"
+        )
+        self.assertEqual(move.move_type, "entry")
+        self.assertFalse(move.invoice_date)
+        self.assertEqual(str(move.date), "2026-09-15")
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {
+                "type_id": ctype.id,
+                "date": "2026-09-01",
+                "output_format": "csv",
+                "date_start": "2026-09-01",
+                "date_end": "2026-09-30",
+                "source_move_ids": [(6, 0, move.ids)],
+            }
+        )
+        export_doc.action_populate()
+
+        self.assertEqual(export_doc.move_ids, move)
+        self.assertTrue(export_doc.summary_ids)
+
+    def test_populate_date_range_excludes_entry_move_outside_range(self):
+        """Assert a ``source_move_ids`` entry move outside the Populate
+        date range is excluded, proving the date filter still applies.
+
+        Companion negative case for issue #38: proves the fix filters
+        by ``date`` rather than simply dropping the date filter for
+        ``source_move_ids`` moves altogether. Pure Python -- trigger
+        P10 (L-09, L-10: building a plain journal-entry move with
+        balancing lines needs real control flow, impossible in a
+        single EVAL: expression).
+        """
+        journal = self._get_general_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Entry Out-Of-Range Product A", income_account)
+        ctype = self._create_export_type(journal, product_a)
+        move = self._create_journal_entry_with_product(
+            journal, product_a, 100.0, "2026-08-15"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {
+                "type_id": ctype.id,
+                "date": "2026-09-01",
+                "output_format": "csv",
+                "date_start": "2026-09-01",
+                "date_end": "2026-09-30",
+                "source_move_ids": [(6, 0, move.ids)],
+            }
+        )
+        export_doc.action_populate()
+
+        self.assertFalse(export_doc.move_ids)
         self.assertFalse(export_doc.summary_ids)
 
     # -------------------------------------------------------------------

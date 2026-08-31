@@ -13,7 +13,7 @@
 - **Data:** At least one active Customer Invoice Export Type exists.
 - **Data:** At least one posted customer invoice exists that is not fully paid and
   matches the selected Type's allowed journals, allowed partners, and, if a date range
-  is used, invoice date.
+  is used, accounting date.
 - **Access:** User is in group _Customer Invoice Export — User_.
 
 ## Flow
@@ -26,10 +26,10 @@
      allowed journals, allowed partners, and allowed products used by **Populate**, and
      the default output format.
    - **Date**: Defaults to today's date. Change if needed.
-   - **Date Start**: Optional. Lower bound (inclusive) on invoice date used by
+   - **Date Start**: Optional. Lower bound (inclusive) on the accounting date used by
      **Populate**. Leave empty together with **Date End** to select invoices regardless
      of date.
-   - **Date End**: Optional. Upper bound (inclusive) on invoice date used by
+   - **Date End**: Optional. Upper bound (inclusive) on the accounting date used by
      **Populate**. Leave empty together with **Date Start** to select invoices
      regardless of date.
    - **Output Format**: Automatically filled from **Type**. Change if needed.

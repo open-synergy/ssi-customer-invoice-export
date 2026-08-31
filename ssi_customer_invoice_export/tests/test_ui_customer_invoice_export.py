@@ -434,11 +434,23 @@ class TestUiCustomerInvoiceExport(HttpSavepointCase):
     def _create_invoice(self, partner, journal, product, invoice_date):
         """Create and post an unpaid customer invoice.
 
+        Sets both ``invoice_date`` and ``date`` to ``invoice_date``.
+        ORM ``create()`` never derives ``date`` from ``invoice_date``
+        (only the web client onchange does), so it defaults to today's
+        date unless set explicitly -- and the Populate date range
+        (``date_start``/``date_end``) filters on ``date``, not
+        ``invoice_date`` (issue #38). The edit tour's Flow 3 depends on
+        ``invoice_edit_early``/``invoice_edit_late`` carrying distinct,
+        deliberate dates for narrowing Date Start to provably drop one
+        of them -- leaving ``date`` unset would make both default to
+        today and defeat that distinction.
+
         :param partner: ``res.partner`` recordset (the customer).
         :param journal: ``account.journal`` recordset.
         :param product: ``product.product`` recordset for the single
             invoice line.
-        :param invoice_date: invoice date, ``"YYYY-MM-DD"``.
+        :param invoice_date: invoice date, ``"YYYY-MM-DD"``, also used
+            as ``date``.
         :return: the posted ``account.move`` recordset.
         :rtype: recordset
         """
@@ -447,6 +459,7 @@ class TestUiCustomerInvoiceExport(HttpSavepointCase):
                 "move_type": "out_invoice",
                 "partner_id": partner.id,
                 "invoice_date": invoice_date,
+                "date": invoice_date,
                 "journal_id": journal.id,
                 "invoice_line_ids": [
                     (
