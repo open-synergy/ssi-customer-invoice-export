@@ -613,8 +613,9 @@ msgstr ""
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export__date_start
 msgid ""
-"Lower bound (inclusive) on invoice date used to auto-select invoices. Leave "
-"empty together with Date End to select invoices regardless of date."
+"Lower bound (inclusive) on the accounting date (account.move 'date') used to"
+" auto-select invoices. Leave empty together with Date End to select invoices"
+" regardless of date."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
@@ -1163,8 +1164,9 @@ msgstr ""
 #. module: ssi_customer_invoice_export
 #: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export__date_end
 msgid ""
-"Upper bound (inclusive) on invoice date used to auto-select invoices. Leave "
-"empty together with Date Start to select invoices regardless of date."
+"Upper bound (inclusive) on the accounting date (account.move 'date') used to"
+" auto-select invoices. Leave empty together with Date Start to select "
+"invoices regardless of date."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
