@@ -1054,3 +1054,327 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         export_doc.action_restart()
         export_doc.invalidate_cache()
         self.assertEqual(export_doc.state, "draft")
+
+    # -------------------------------------------------------------------
+    # Receivable account criteria + Amount Residual
+    #
+    # Amount Total sums the invoice lines' price_subtotal, which stays 0
+    # on a move_type="entry" move (core only recomputes price_subtotal
+    # for is_invoice() moves). Amount Residual instead reads the move's
+    # receivable journal item, which is also where every reduction --
+    # payments, and the scholarship / fee waiver / promotion deductions,
+    # which all reconcile a credit against the receivable rather than
+    # touching the invoice -- has already been applied.
+    # -------------------------------------------------------------------
+
+    def _get_receivable_account(self):
+        """Return a dedicated reconcilable receivable account."""
+        account = self.env["account.account"].search(
+            [
+                ("code", "=", "TESTREC01"),
+                ("company_id", "=", self.env.company.id),
+            ],
+            limit=1,
+        )
+        if not account:
+            account = self.env["account.account"].create(
+                {
+                    "name": "Test Receivable Account",
+                    "code": "TESTREC01",
+                    "user_type_id": self.env.ref(
+                        "account.data_account_type_receivable"
+                    ).id,
+                    "reconcile": True,
+                    "company_id": self.env.company.id,
+                }
+            )
+        return account
+
+    def _create_receivable_entry(
+        self, journal, product, amount, date, partner, with_currency=False
+    ):
+        """Create a posted entry whose debit line sits on receivable.
+
+        Mirrors the shape an SSI ``customer_invoice`` produces: a
+        ``move_type="entry"`` move carrying one receivable debit line
+        (what the customer owes) and one revenue credit line bearing the
+        product, with ``price_subtotal`` left at 0 throughout.
+
+        :param journal: ``account.journal`` (type ``general``) used
+        :param product: ``product.product`` set on the revenue line
+        :param amount: amount of the two balancing lines
+        :param date: move date string
+        :param partner: ``res.partner`` set on the move and receivable
+        :param with_currency: when True, stamp the company currency and
+            ``amount_currency`` on both lines, the way the SSI
+            accounting entry mixin does, so ``amount_residual_currency``
+            is populated instead of being left at 0.0
+        :return: the posted ``account.move``
+        """
+        currency = self.env.company.currency_id
+        revenue_values = {
+            "account_id": self._get_income_account().id,
+            "product_id": product.id,
+            "name": "Revenue Line",
+            "debit": 0.0,
+            "credit": amount,
+        }
+        receivable_values = {
+            "account_id": self._get_receivable_account().id,
+            "partner_id": partner.id,
+            "name": "Receivable Line",
+            "debit": amount,
+            "credit": 0.0,
+        }
+        if with_currency:
+            revenue_values.update(
+                {"currency_id": currency.id, "amount_currency": -amount}
+            )
+            receivable_values.update(
+                {"currency_id": currency.id, "amount_currency": amount}
+            )
+        move = self.env["account.move"].create(
+            {
+                "move_type": "entry",
+                "journal_id": journal.id,
+                "date": date,
+                "partner_id": partner.id,
+                "line_ids": [(0, 0, revenue_values), (0, 0, receivable_values)],
+            }
+        )
+        move.action_post()
+        return move
+
+    def _reduce_receivable(self, journal, move, amount, date, partner):
+        """Reconcile a credit entry against ``move``'s receivable line.
+
+        Stands in for a scholarship deduction, a fee waiver deduction or
+        a promotion usage: all three post their own journal entry
+        crediting the receivable account and reconcile it against the
+        invoice's receivable item, leaving the invoice itself untouched.
+
+        :param journal: ``account.journal`` (type ``general``) used
+        :param move: the ``account.move`` whose receivable is reduced
+        :param amount: amount credited against the receivable
+        :param date: move date string
+        :param partner: ``res.partner`` set on the move and receivable
+        :return: the posted counter ``account.move``
+        """
+        receivable_account = self._get_receivable_account()
+        counter = self.env["account.move"].create(
+            {
+                "move_type": "entry",
+                "journal_id": journal.id,
+                "date": date,
+                "partner_id": partner.id,
+                "line_ids": [
+                    (
+                        0,
+                        0,
+                        {
+                            "account_id": receivable_account.id,
+                            "partner_id": partner.id,
+                            "name": "Deduction Line",
+                            "debit": 0.0,
+                            "credit": amount,
+                        },
+                    ),
+                    (
+                        0,
+                        0,
+                        {
+                            "account_id": self._get_temp_account().id,
+                            "name": "Contra Line",
+                            "debit": amount,
+                            "credit": 0.0,
+                        },
+                    ),
+                ],
+            }
+        )
+        counter.action_post()
+        (move.line_ids + counter.line_ids).filtered(
+            lambda line: line.account_id == receivable_account
+        ).reconcile()
+        return counter
+
+    def _populate_from_source(self, moves, **type_values):
+        """Create and populate an export document over ``moves``.
+
+        :param moves: ``account.move`` recordset fed via source_move_ids
+        :param type_values: additional Type field values
+        :return: the populated ``customer_invoice_export``
+        """
+        ctype = self._create_minimal_export_type(**type_values)
+        export_doc = self.env["customer_invoice_export"].create(
+            {
+                "type_id": ctype.id,
+                "date": "2026-03-01",
+                "output_format": "csv",
+                "source_move_ids": [(6, 0, moves.ids)],
+            }
+        )
+        export_doc.action_populate()
+        return export_doc
+
+    def test_default_type_receivable_account_criteria(self):
+        """Assert the receivable criteria defaults to every receivable.
+
+        Pure Python -- trigger P10 (L-09: asserting a field default on a
+        freshly created record needs the shared type helper).
+        """
+        ctype = self._create_minimal_export_type()
+
+        self.assertEqual(ctype.receivable_account_selection_method, "domain")
+        self.assertEqual(
+            ctype.receivable_account_domain,
+            "[('user_type_id.type', '=', 'receivable')]",
+        )
+
+    def test_allowed_receivable_account_ids_computed_from_type(self):
+        """Assert the manual criteria resolves onto the document.
+
+        Pure Python -- trigger P10 (L-09: the receivable account fixture
+        needs a conditional search-or-create step).
+        """
+        receivable_account = self._get_receivable_account()
+        ctype = self._create_minimal_export_type(
+            receivable_account_selection_method="manual",
+            receivable_account_ids=[(6, 0, receivable_account.ids)],
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+
+        self.assertEqual(export_doc.allowed_receivable_account_ids, receivable_account)
+
+    def test_amount_residual_reads_receivable_line_not_invoice_lines(self):
+        """Assert Amount Residual is filled where Amount Total is 0.
+
+        Pure Python -- trigger P10 (L-09, L-10: building the entry move
+        and its receivable fixture needs real control flow).
+        """
+        journal = self._get_general_journal()
+        product = self._create_product("Residual Product", self._get_income_account())
+        partner = self.env["res.partner"].create({"name": "Residual Partner"})
+        move = self._create_receivable_entry(
+            journal, product, 200000.0, "2026-01-10", partner
+        )
+
+        export_doc = self._populate_from_source(move)
+
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        summary = export_doc.summary_ids
+        self.assertEqual(summary.amount_total, 0.0)
+        self.assertEqual(summary.amount_residual, 200000.0)
+
+    def test_amount_residual_is_net_of_reconciled_deduction(self):
+        """Assert a deduction reconciled against receivable is netted.
+
+        Mirrors a real record: a 7.250.000 invoice reduced to 990.000
+        outstanding by scholarship/waiver deductions, where Amount Total
+        would still report the gross.
+
+        Pure Python -- trigger P10 (L-09, L-10: posting a counter move
+        and calling reconcile() cannot be expressed in YAML).
+        """
+        journal = self._get_general_journal()
+        product = self._create_product("Deducted Product", self._get_income_account())
+        partner = self.env["res.partner"].create({"name": "Deducted Partner"})
+        move = self._create_receivable_entry(
+            journal, product, 7250000.0, "2026-01-10", partner
+        )
+        self._reduce_receivable(journal, move, 6260000.0, "2026-01-20", partner)
+
+        export_doc = self._populate_from_source(move)
+
+        self.assertEqual(export_doc.summary_ids.amount_residual, 990000.0)
+
+    def test_amount_residual_zero_when_fully_reconciled(self):
+        """Assert a fully settled invoice reports nothing outstanding.
+
+        Pure Python -- trigger P10 (L-09, L-10: reconcile() call).
+        """
+        journal = self._get_general_journal()
+        product = self._create_product("Settled Product", self._get_income_account())
+        partner = self.env["res.partner"].create({"name": "Settled Partner"})
+        move = self._create_receivable_entry(
+            journal, product, 500000.0, "2026-01-10", partner
+        )
+        self._reduce_receivable(journal, move, 500000.0, "2026-01-20", partner)
+
+        export_doc = self._populate_from_source(move)
+
+        self.assertEqual(export_doc.summary_ids.amount_residual, 0.0)
+
+    def test_amount_residual_ignores_non_receivable_debit_line(self):
+        """Assert a debit line outside the criteria is not counted.
+
+        Pure Python -- trigger P10 (L-09, L-10: entry move fixture).
+        """
+        journal = self._get_general_journal()
+        product = self._create_product("Non Rec Product", self._get_income_account())
+        partner = self.env["res.partner"].create({"name": "Non Rec Partner"})
+        move = self._create_journal_entry_with_product(
+            journal, product, 300000.0, "2026-01-10", partner
+        )
+
+        export_doc = self._populate_from_source(move)
+
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        self.assertEqual(export_doc.summary_ids.amount_residual, 0.0)
+
+    def test_amount_residual_reads_currency_residual_when_line_has_currency(self):
+        """Assert a currency-stamped line is read in its own currency.
+
+        Covers the branch taken by every move the SSI accounting entry
+        mixin builds, which always stamps currency_id and
+        amount_currency -- there core fills amount_residual_currency,
+        whereas a line without a currency leaves it at 0.0 and must fall
+        back to amount_residual.
+
+        Pure Python -- trigger P10 (L-09, L-10: entry move fixture).
+        """
+        journal = self._get_general_journal()
+        product = self._create_product("Currency Product", self._get_income_account())
+        partner = self.env["res.partner"].create({"name": "Currency Partner"})
+        move = self._create_receivable_entry(
+            journal,
+            product,
+            150000.0,
+            "2026-01-10",
+            partner,
+            with_currency=True,
+        )
+        receivable_line = move.line_ids.filtered(
+            lambda line: line.account_id == self._get_receivable_account()
+        )
+        self.assertTrue(receivable_line.currency_id)
+        self.assertEqual(receivable_line.amount_residual_currency, 150000.0)
+
+        export_doc = self._populate_from_source(move)
+
+        self.assertEqual(export_doc.summary_ids.amount_residual, 150000.0)
+
+    def test_amount_residual_grouping_partner_sums_every_move(self):
+        """Assert per-partner rows add up the residual of each invoice.
+
+        Pure Python -- trigger P10 (L-09, L-10: two entry move fixtures).
+        """
+        journal = self._get_general_journal()
+        product = self._create_product("Grouped Product", self._get_income_account())
+        partner = self.env["res.partner"].create({"name": "Grouped Partner"})
+        first = self._create_receivable_entry(
+            journal, product, 100000.0, "2026-01-10", partner
+        )
+        second = self._create_receivable_entry(
+            journal, product, 50000.0, "2026-01-11", partner
+        )
+
+        export_doc = self._populate_from_source(
+            first + second, grouping_method="partner"
+        )
+
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        self.assertEqual(export_doc.summary_ids.amount_residual, 150000.0)

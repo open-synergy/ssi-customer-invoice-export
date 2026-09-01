@@ -65,11 +65,26 @@
      (`[]`) allows every product.
    - _Python Code_: enter Python code in **Product Python Code** that sets the `result`
      variable to a recordset of `product.product`.
-9. On the **Parser** tab, enter **Parser Python Code** _(required)_: Python code that
-   sets the `result` variable to a list of rows (each row a list of cell values) to be
-   written to the export file. `env`, `document`, `summary_ids`, `move_ids`, and
-   `line_ids` are available in the local scope.
-10. Click **Save**.
+9. On the **Receivable Account Criteria** tab, select **Receivable Account Selection
+   Method** _(required)_ and fill in the field that appears below it, matching the
+   method chosen. These accounts tell the export which journal item of a selected
+   invoice carries what the customer still owes, which is where **Amount Residual** on
+   each summary row is read from:
+   - _Manual_: select the allowed accounts in **Receivable Accounts**.
+   - _Domain_ (default): enter a domain filter in **Receivable Account Domain**. Unlike
+     the other criteria this does **not** default to an empty domain -- it defaults to
+     `[('user_type_id.type', '=', 'receivable')]`, allowing every receivable account,
+     because summing the residual of non-receivable journal items would be meaningless.
+   - _Python Code_: enter Python code in **Receivable Account Python Code** that sets
+     the `result` variable to a recordset of `account.account`.
+10. On the **Parser** tab, enter **Parser Python Code** _(required)_: Python code that
+    sets the `result` variable to a list of rows (each row a list of cell values) to be
+    written to the export file. `env`, `document`, `summary_ids`, `move_ids`, and
+    `line_ids` are available in the local scope. Each summary row carries two amounts:
+    `s.amount_total`, the sum of its qualifying invoice lines, and `s.amount_residual`,
+    what is still outstanding on its invoice(s) once every payment and every deduction
+    reconciled against their receivable has been taken into account.
+11. Click **Save**.
 
 ## Post-Condition
 

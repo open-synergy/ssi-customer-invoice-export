@@ -116,6 +116,30 @@
                             />
                     </group>
                 </page>
+                <page
+                        name="receivable_account_config"
+                        string="Receivable Account Criteria"
+                    >
+                    <group name="receivable_account_config_1" colspan="4" col="2">
+                        <field name="receivable_account_selection_method" />
+                        <field
+                                name="receivable_account_ids"
+                                widget="many2many_tags"
+                                attrs="{'invisible':[('receivable_account_selection_method','!=','manual')]}"
+                            />
+                        <field
+                                name="receivable_account_domain"
+                                widget="domain"
+                                options="{'model': 'account.account', 'in_dialog': True}"
+                                attrs="{'invisible':[('receivable_account_selection_method','!=','domain')]}"
+                            />
+                        <field
+                                name="receivable_account_python_code"
+                                widget="ace"
+                                attrs="{'invisible':[('receivable_account_selection_method','!=','code')]}"
+                            />
+                    </group>
+                </page>
                 <page name="parser_config" string="Parser">
                     <group name="parser_config_1" colspan="4" col="1">
                         <field name="parser_python_code" widget="ace" nolabel="1" />

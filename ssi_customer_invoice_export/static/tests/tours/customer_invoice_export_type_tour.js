@@ -196,7 +196,32 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_type_tour", fun
                     },
                 },
 
-                // Flow 9 -- On the Parser tab, Parser Python Code is
+                // Flow 9 -- On the Receivable Account Criteria tab,
+                // Receivable Account Selection Method and Receivable
+                // Account Domain are displayed (the domain defaults to
+                // every receivable account rather than to "[]").
+                {
+                    content: "Open the Receivable Account Criteria tab",
+                    trigger:
+                        ".o_notebook .nav-link:contains(Receivable Account Criteria)",
+                },
+                {
+                    content: "Receivable Account Selection Method field is displayed",
+                    trigger:
+                        ".o_field_widget[name='receivable_account_selection_method']",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+                {
+                    content: "Receivable Account Domain field is displayed",
+                    trigger: ".o_field_widget[name='receivable_account_domain']",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 10 -- On the Parser tab, Parser Python Code is
                 // displayed (its "result = []" default already
                 // satisfies the required constraint).
                 {
@@ -211,7 +236,7 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_type_tour", fun
                     },
                 },
 
-                // Flow 10 -- Click Save.
+                // Flow 11 -- Click Save.
                 {
                     content: "Save the record",
                     trigger: ".o_form_button_save",

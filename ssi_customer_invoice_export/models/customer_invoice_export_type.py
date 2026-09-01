@@ -203,6 +203,55 @@ class CustomerInvoiceExportType(models.Model):
         ),
     )
 
+    # --- Receivable account criteria (many2one configurator) ---
+
+    receivable_account_selection_method = fields.Selection(
+        string="Receivable Account Selection Method",
+        selection=[
+            ("manual", "Manual"),
+            ("domain", "Domain"),
+            ("code", "Python Code"),
+        ],
+        default="domain",
+        required=True,
+        help=(
+            "Method used to determine which accounts count as receivable "
+            "when reading the outstanding amount of the selected invoices."
+        ),
+    )
+    receivable_account_ids = fields.Many2many(
+        string="Receivable Accounts",
+        comodel_name="account.account",
+        relation="rel_cust_inv_export_type_2_receivable_account",
+        column1="type_id",
+        column2="account_id",
+        help=(
+            "Manually selected list of allowed receivable accounts. Used "
+            "when Receivable Account Selection Method = Manual."
+        ),
+    )
+    receivable_account_domain = fields.Text(
+        string="Receivable Account Domain",
+        default="[('user_type_id.type', '=', 'receivable')]",
+        help=(
+            "Domain expression evaluated against account.account to "
+            "determine the allowed receivable accounts. Used when "
+            "Receivable Account Selection Method = Domain. Unlike the "
+            "other criteria this does not default to every record, "
+            "because summing the residual of non-receivable journal "
+            "items would be meaningless."
+        ),
+    )
+    receivable_account_python_code = fields.Text(
+        string="Receivable Account Python Code",
+        default="result = []",
+        help=(
+            "Python code that must set the `result` variable to a "
+            "recordset of account.account. Used when Receivable Account "
+            "Selection Method = Python Code."
+        ),
+    )
+
     # --- Parser ---
 
     parser_python_code = fields.Text(
