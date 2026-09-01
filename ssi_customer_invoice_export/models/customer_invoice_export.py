@@ -173,6 +173,17 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         compute_sudo=True,
         help="Products allowed to be selected, as configured on the Type.",
     )
+    allowed_receivable_account_ids = fields.Many2many(
+        string="Allowed Receivable Accounts",
+        comodel_name="account.account",
+        compute="_compute_allowed_receivable_account_ids",
+        store=False,
+        compute_sudo=True,
+        help=(
+            "Accounts treated as receivable when reading the outstanding "
+            "amount of the selected invoices, as configured on the Type."
+        ),
+    )
     move_ids = fields.Many2many(
         string="Invoices",
         comodel_name="account.move",
@@ -301,6 +312,28 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
                     python_code=record.type_id.product_python_code,
                 )
             record.allowed_product_ids = result
+
+    @api.depends("type_id")
+    def _compute_allowed_receivable_account_ids(self):
+        """Resolve the receivable accounts allowed by the document's Type.
+
+        Delegates to the many2one configurator filter defined on
+        ``type_id`` (selection method, manual recordset, domain, or
+        Python code).
+        """
+        for record in self:
+            result = False
+            if record.type_id:
+                result = record._m2o_configurator_get_filter(
+                    object_name="account.account",
+                    method_selection=(
+                        record.type_id.receivable_account_selection_method
+                    ),
+                    manual_recordset=record.type_id.receivable_account_ids,
+                    domain=record.type_id.receivable_account_domain,
+                    python_code=record.type_id.receivable_account_python_code,
+                )
+            record.allowed_receivable_account_ids = result
 
     @api.onchange("type_id")
     def onchange_output_format(self):
