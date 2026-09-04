@@ -105,6 +105,16 @@
                     </field>
                 </page>
                 <page name="invoice_line" string="Invoice Lines">
+                    <div>
+                        <button
+                                name="action_rederive_summary"
+                                string="Reload"
+                                type="object"
+                                class="oe_highlight"
+                                icon="fa-refresh"
+                                attrs="{'invisible':[('state','!=','draft')]}"
+                            />
+                    </div>
                     <field name="line_ids">
                         <tree>
                             <field name="move_id" />
