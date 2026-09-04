@@ -356,17 +356,58 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
             record._populate()
 
     def _populate(self):
-        """Select qualifying invoices/lines and (re)build Summary rows.
+        """Select qualifying invoices from the Type's search criteria.
 
-        Searches ``account.move`` with ``_prepare_invoice_domain``, keeps
-        only the lines matching the Type's product criteria
-        (``_get_qualifying_lines``), groups them per
-        ``_get_summary_grouping_key``, and replaces ``summary_ids`` with
-        one row per group.
+        Searches ``account.move`` with ``_prepare_invoice_domain`` and
+        replaces ``move_ids`` with the result. Does not rebuild
+        ``line_ids``/``summary_ids`` itself: writing ``move_ids``
+        triggers ``write()``, which calls ``_rederive_summary`` for
+        this record.
         """
         self.ensure_one()
         moves = self.env["account.move"].search(self._prepare_invoice_domain())
         self.move_ids = [(6, 0, moves.ids)]
+
+    def write(self, vals):
+        """Rebuild Invoice Lines and Summary whenever Invoices changes.
+
+        Runs ``super()`` first so ``move_ids`` already holds its new
+        value, then rebuilds ``line_ids``/``summary_ids`` for every
+        affected record under ``sudo()`` -- mirroring
+        ``action_populate``'s own use of ``sudo()`` -- so a user
+        without direct read access to ``account.move.line`` can still
+        edit ``move_ids`` manually from the form. Triggered by any
+        write touching ``move_ids``, including ``_populate`` itself, a
+        manual edit of the Invoices list, and any import/``queue_job``/
+        glue module that writes ``move_ids`` directly -- an
+        ``@api.onchange`` would only cover the web form. No recursion:
+        ``_rederive_summary`` only ever writes ``line_ids`` and
+        ``summary_ids``, neither of which is ``move_ids``.
+
+        :param vals: field values to write
+        :return: the value returned by ``super().write()``
+        :rtype: bool
+        """
+        result = super().write(vals)
+        if "move_ids" in vals:
+            for record in self:
+                record.sudo()._rederive_summary()
+        return result
+
+    def _rederive_summary(self):
+        """Rebuild Invoice Lines and Summary from the current Invoices.
+
+        Reads ``self.move_ids`` (not a fresh search), keeps only the
+        lines matching the Type's product criteria
+        (``_get_qualifying_lines``), groups them per
+        ``_get_summary_grouping_key``, and replaces ``line_ids``/
+        ``summary_ids`` with one summary row per group. Called by
+        ``write()`` whenever ``move_ids`` changes, so its result stays
+        in sync with the current Invoices regardless of whether they
+        were set by Populate or edited manually.
+        """
+        self.ensure_one()
+        moves = self.move_ids
 
         qualifying_by_move = {}
         all_qualifying_ids = []
@@ -700,6 +741,35 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
             "type": "binary",
             "datas": base64.b64encode(output),
         }
+
+    # -------------------------------------------------------------------
+    # Confirm gate: refuse stale Invoices/Summary
+    # -------------------------------------------------------------------
+
+    @ssi_decorator.pre_confirm_check()
+    def _01_check_summary_matches_moves(self):
+        """Refuse Confirm if Summary still references a dropped invoice.
+
+        ``write()`` now keeps ``summary_ids`` in sync with ``move_ids``
+        automatically, so this only ever fires for a document whose
+        Invoices were edited before that consistency check existed.
+
+        :raises UserError: when a Summary row references a move that
+            is no longer in ``move_ids``
+        """
+        self.ensure_one()
+        stray_moves = self.summary_ids.mapped("move_ids") - self.move_ids
+        if stray_moves:
+            error_message = """
+Context: Confirming customer invoice export
+Database ID: %s
+Problem: Summary references invoice(s) not in Invoices: %s
+Solution: Click Populate to rebuild Invoice Lines and Summary from the current Invoices
+""" % (
+                self.id,
+                ", ".join(stray_moves.mapped("name")),
+            )
+            raise UserError(_(error_message))
 
     # -------------------------------------------------------------------
     # Mandatory transactional model hooks
