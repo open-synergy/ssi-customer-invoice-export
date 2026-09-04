@@ -395,15 +395,6 @@ class TestUiCustomerInvoiceExport(HttpSavepointCase):
         self.export_recreate.with_context(queue_job__no_delay=True).with_user(
             self.admin
         ).action_approve_approval()
-        # Overwrite the just-generated Export File Name with a marker
-        # that ``_build_export_filename`` can never itself produce (it
-        # always appends a real ``YYYYmmdd_HHMMSS`` timestamp plus
-        # extension) -- purely so the tour has a content-based signal
-        # that Recreate actually regenerated the file, since the
-        # button lives on a <page> (not the statusbar/button box), so
-        # it never goes ``disabled`` while the RPC runs (see the
-        # "recreate" tour's Post-Condition gate).
-        self.export_recreate.write({"export_filename": "TOUR-CIE-STALE-MARKER"})
 
     def _get_income_account(self):
         """Return an existing revenue account, creating one if needed.

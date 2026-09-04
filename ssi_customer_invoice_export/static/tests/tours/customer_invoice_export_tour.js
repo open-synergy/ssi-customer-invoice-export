@@ -1118,23 +1118,25 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     trigger: ".o_form_view button[name='action_recreate_export_file']",
                 },
 
-                // Post-Condition -- Export File Name is filled in
-                // again. The button lives on a <page>, not the
-                // statusbar/button box, so it never goes `disabled`
-                // while the RPC runs (odoo-development-ui-test skill,
-                // patterns-advanced-gotchas.md §P "Batasan penting") --
-                // `:enabled` would match seketika and gate nothing.
-                // setUp() overwrites Export File Name with the marker
-                // "TOUR-CIE-STALE-MARKER" right after building the
-                // fixture, a value `_build_export_filename` can never
-                // itself produce (it always appends a real
-                // `YYYYmmdd_HHMMSS` timestamp plus extension), so the
-                // marker's DISAPPEARANCE is only possible once this
-                // click's regeneration has actually landed.
+                // Post-Condition -- per issue #43 revision, this tour
+                // only proves the click completes and the form settles
+                // back on the Export File page; it does NOT assert the
+                // regenerated filename/content -- that belongs to the
+                // unit test in test_customer_invoice_export.py.
+                // Export File Name is `invisible="1"` in the view
+                // (never in the DOM), and the Export File field itself
+                // renders readonly via an inline `<a class=
+                // "o_form_uri">` that is empty-and-zero-pixel whenever
+                // the bound value is blank, so neither is a safe
+                // anchor (odoo-development-ui-test skill,
+                // selectors.md "Field readonly yang KOSONG tidak
+                // terlihat oleh tour"). Anchor instead to the Export
+                // File field's own label: static markup emitted by the
+                // group, so it carries text and stays visible
+                // regardless of the field's value.
                 {
-                    content: "Export File Name is filled in again",
-                    trigger:
-                        ".o_field_widget[name='export_file']:not(:contains(TOUR-CIE-STALE-MARKER))",
+                    content: "Export File page is still rendered",
+                    trigger: ".o_form_label:contains(Export File)",
                     run: function () {
                         // Assertion only.
                     },
