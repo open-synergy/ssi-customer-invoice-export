@@ -1076,4 +1076,72 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
             ]
         )
     );
+
+    // IK: docs/customer_invoice_export/17-recreate-export-file.md
+    tour.register(
+        "ssi_customer_invoice_export_recreate_export_file",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record to regenerate.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Recreate Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Open the Export File tab.
+                {
+                    content: "Open the Export File tab",
+                    trigger: ".o_notebook .nav-link:contains(Export File)",
+                },
+
+                // Flow 4 -- Click the Recreate Export File button. This
+                // button carries no confirm= attribute (Keputusan
+                // Desain, issue #43), so -- like Requeue above -- no
+                // dialog step follows it.
+                {
+                    content: "Click the Recreate Export File button",
+                    trigger: ".o_form_view button[name='action_recreate_export_file']",
+                },
+
+                // Post-Condition -- per issue #43 revision, this tour
+                // only proves the click completes and the form settles
+                // back on the Export File page; it does NOT assert the
+                // regenerated filename/content -- that belongs to the
+                // unit test in test_customer_invoice_export.py.
+                // Export File Name is `invisible="1"` in the view
+                // (never in the DOM), and the Export File field itself
+                // renders readonly via an inline `<a class=
+                // "o_form_uri">` that is empty-and-zero-pixel whenever
+                // the bound value is blank, so neither is a safe
+                // anchor (odoo-development-ui-test skill,
+                // selectors.md "Field readonly yang KOSONG tidak
+                // terlihat oleh tour"). Anchor instead to the Export
+                // File field's own label: static markup emitted by the
+                // group, so it carries text and stays visible
+                // regardless of the field's value.
+                {
+                    content: "Export File page is still rendered",
+                    trigger: ".o_form_label:contains(Export File)",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
 });

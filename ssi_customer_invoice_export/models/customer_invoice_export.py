@@ -541,19 +541,25 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
             description=_(description)
         )._generate_export_file()
 
-    def _generate_export_file(self):
+    def _generate_export_file(self, force=False):
         """Render the export file from ``summary_ids`` and store it.
 
         Runs the Type's parser code (``_run_parser``), renders it to the
         document's Output Format (``_render_output``), writes the result
         to ``export_file``/``export_filename``, and creates a matching
-        attachment. Idempotent: does nothing if ``export_file`` is
-        already set.
+        attachment. Idempotent unless ``force`` is set: does nothing if
+        ``export_file`` is already set and ``force`` is ``False``. Does
+        not delete any previously generated attachment -- each call
+        that reaches ``write()`` below creates one more.
 
+        :param force: when ``True``, regenerate even if ``export_file``
+            is already set. Used by ``_recreate_export_file``; the
+            queue-to-done caller never sets it, so that path stays
+            idempotent.
         :raises UserError: if there are no Summary rows to export
         """
         self.ensure_one()
-        if self.export_file:
+        if self.export_file and not force:
             return
 
         if not self.summary_ids:
@@ -701,7 +707,12 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
         """Build the export file name from the document Name and format.
 
         Falls back to ``export_<id>`` when the document has no Name yet
-        (sequence not assigned).
+        (sequence not assigned). ``/`` and ``\\`` in the Name are
+        replaced with ``-`` so a real Name (e.g. ``CIE/2026/000080``)
+        never leaks a path separator into the file name, and a
+        local-time timestamp is appended so two generations of the
+        same document -- e.g. after ``action_recreate_export_file`` --
+        never produce the same file name.
 
         :return: file name including its extension
         :rtype: str
@@ -709,7 +720,11 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
         self.ensure_one()
         extension = OUTPUT_FORMAT_EXTENSION.get(self.output_format, "csv")
         base = self.name if self.name and self.name != "/" else "export_%s" % self.id
-        return "%s.%s" % (base, extension)
+        base = base.replace("/", "-").replace("\\", "-")
+        timestamp = fields.Datetime.context_timestamp(
+            self, fields.Datetime.now()
+        ).strftime("%Y%m%d_%H%M%S")
+        return "%s_%s.%s" % (base, timestamp, extension)
 
     def _create_export_attachment(self, output, filename):
         """Create an ``ir.attachment`` holding the generated export file.
@@ -741,6 +756,52 @@ Solution: Fix the Parser Python Code on Type '%s' to assign a list of rows to `r
             "type": "binary",
             "datas": base64.b64encode(output),
         }
+
+    # -------------------------------------------------------------------
+    # Recreate export file: regenerate a Done document after a Parser
+    # Python Code fix
+    # -------------------------------------------------------------------
+
+    def action_recreate_export_file(self):
+        """Regenerate the export file for a document already Done.
+
+        Runs synchronously (no ``with_delay()``), so a Parser Python
+        Code error surfaces immediately as an on-screen dialog instead
+        of failing silently inside a queue job.
+        """
+        for record in self.sudo():
+            record._recreate_export_file()
+
+    def _recreate_export_file(self):
+        """Force ``_generate_export_file`` to run again for this document.
+
+        Only allowed once the document has reached ``done`` -- earlier
+        states already reach Done through the normal queue-to-done
+        flow, which generates the file once on its own. Bypasses
+        ``_generate_export_file``'s idempotent guard with
+        ``force=True``, so a corrected Parser Python Code (or one that
+        previously raised) can be re-run without resetting the
+        document's state. A parser error still raises ``UserError``
+        (see ``_run_parser``) and leaves the previous
+        ``export_file``/``export_filename`` untouched, since
+        ``_generate_export_file`` only reaches its own ``write()``
+        once the parser succeeds.
+
+        :raises UserError: if the document is not in the ``done`` state
+        """
+        self.ensure_one()
+        if self.state != "done":
+            error_message = """
+Context: Recreating customer invoice export file
+Database ID: %s
+Problem: Document status is not Done (current status: %s)
+Solution: This action is only available once the document has reached Done
+""" % (
+                self.id,
+                self.state,
+            )
+            raise UserError(_(error_message))
+        self._generate_export_file(force=True)
 
     # -------------------------------------------------------------------
     # Confirm gate: refuse stale Invoices/Summary

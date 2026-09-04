@@ -2,6 +2,8 @@
 # Copyright 2026 PT. Simetri Sinergi Indonesia
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
+import re
+
 from odoo_yaml_test import YamlTransactionCase
 
 from odoo.exceptions import UserError
@@ -1557,3 +1559,151 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         with self.assertRaises(UserError) as error_catcher:
             export_doc.action_confirm()
         self.assertIn(invoice_out.name, str(error_catcher.exception))
+
+    # -------------------------------------------------------------------
+    # Recreate Export File (issue #43): regenerate a Done document,
+    # bertimestamp file names.
+    # -------------------------------------------------------------------
+
+    def _build_done_export_doc(self, product_name, partner_name, price):
+        """Build a document that has already reached ``done`` for real.
+
+        Populates and confirms/approves it synchronously
+        (``queue_job__no_delay``) so ``_01_generate_export_on_queue_done``
+        actually runs and ``export_file``/``export_filename`` hold a
+        real generated file -- not just a pending queue job.
+
+        :param product_name: name for the fixture product
+        :param partner_name: name for the fixture partner
+        :param price: unit price for the fixture invoice line
+        :return: a tuple ``(export_doc, ctype)`` of the ``done``
+            document and its ``customer_invoice_export_type``
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product(product_name, income_account)
+        partner = self.env["res.partner"].create({"name": partner_name})
+        ctype = self._create_export_type(journal, product_a)
+        self._create_invoice(partner, journal, [(product_a, price)], "2026-01-25")
+
+        export_doc = (
+            self.env["customer_invoice_export"]
+            .with_user(self.env.ref("base.user_admin"))
+            .create({"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"})
+        )
+        export_doc.action_populate()
+        export_doc.action_confirm()
+        export_doc.invalidate_cache()
+        export_doc.with_context(queue_job__no_delay=True).action_approve_approval()
+        export_doc.invalidate_cache()
+        self.assertEqual(export_doc.state, "done")
+        return export_doc, ctype
+
+    def test_recreate_export_file_regenerates_with_new_parser_code(self):
+        """Assert Recreate re-runs the parser and adds a new attachment.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        export_doc, ctype = self._build_done_export_doc(
+            "Recreate Product A", "Recreate Partner", 175.0
+        )
+        old_filename = export_doc.export_filename
+        attachment_domain = [
+            ("res_model", "=", "customer_invoice_export"),
+            ("res_id", "=", export_doc.id),
+        ]
+        old_attachment_count = self.env["ir.attachment"].search_count(attachment_domain)
+
+        ctype.parser_python_code = "result = [['FIXED', 999.0]]"
+        export_doc.action_recreate_export_file()
+
+        self.assertEqual(
+            self.env["ir.attachment"].search_count(attachment_domain),
+            old_attachment_count + 1,
+        )
+        self.assertNotEqual(export_doc.export_filename, old_filename)
+
+    def test_generate_export_file_without_force_is_idempotent(self):
+        """Assert ``_generate_export_file()`` without ``force`` no-ops.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        export_doc, _ctype = self._build_done_export_doc(
+            "Idempotent Product A", "Idempotent Partner", 90.0
+        )
+        old_filename = export_doc.export_filename
+        attachment_domain = [
+            ("res_model", "=", "customer_invoice_export"),
+            ("res_id", "=", export_doc.id),
+        ]
+        old_attachment_count = self.env["ir.attachment"].search_count(attachment_domain)
+
+        export_doc._generate_export_file()
+
+        self.assertEqual(export_doc.export_filename, old_filename)
+        self.assertEqual(
+            self.env["ir.attachment"].search_count(attachment_domain),
+            old_attachment_count,
+        )
+
+    def test_export_filename_matches_timestamped_pattern(self):
+        """Assert the built file name is timestamped and slash-free.
+
+        Pure Python -- trigger P4 (L-05: no regex assert exists in the
+        odoo-yaml-test DSL).
+        """
+        export_doc, _ctype = self._build_done_export_doc(
+            "Filename Product A", "Filename Partner", 60.0
+        )
+
+        self.assertIn("/", export_doc.name)
+        self.assertNotIn("/", export_doc.export_filename)
+        self.assertIsNotNone(
+            re.match(r"^.+_\d{8}_\d{6}\.(csv|xlsx|txt)$", export_doc.export_filename)
+        )
+
+    def test_recreate_export_file_on_non_done_raises(self):
+        """Assert Recreate refuses a document that is not Done.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("NonDone Product A", income_account)
+        ctype = self._create_export_type(journal, product_a)
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        self.assertEqual(export_doc.state, "draft")
+
+        with self.assertRaises(UserError):
+            export_doc.action_recreate_export_file()
+
+    def test_recreate_export_file_parser_error_keeps_previous_file(self):
+        """Assert a parser error during Recreate keeps the old file.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        export_doc, ctype = self._build_done_export_doc(
+            "ParserError Product A", "ParserError Partner", 45.0
+        )
+        old_file = export_doc.export_file
+        old_filename = export_doc.export_filename
+        self.assertTrue(old_file)
+
+        ctype.parser_python_code = "raise ValueError('boom')"
+
+        with self.assertRaises(UserError) as error_catcher:
+            export_doc.action_recreate_export_file()
+        self.assertIn(ctype.display_name, str(error_catcher.exception))
+
+        self.assertEqual(export_doc.export_file, old_file)
+        self.assertEqual(export_doc.export_filename, old_filename)

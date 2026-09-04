@@ -350,6 +350,52 @@ class TestUiCustomerInvoiceExport(HttpSavepointCase):
         # setUp instead of through the button under test.
         self.export_recompute.done_queue_job_batch_id.job_ids.write({"state": "done"})
 
+        # -- recreate export file: the IK requires a document already
+        # in Done, with an Export File already generated once -- unlike
+        # requeue/recompute above, this document needs a REAL Export
+        # File (not just a queued job), so it is built with a matching
+        # journal/product/invoice and reaches Done synchronously via
+        # ``queue_job__no_delay`` (same idiom as
+        # ``test_workflow_to_done_generates_export_file`` in
+        # ``test_customer_invoice_export.py``).
+        self.journal_recreate = self._create_sale_journal(
+            "TOUR CIE Recreate Journal", "TCIRE"
+        )
+        self.product_recreate = self._create_product(
+            "TOUR CIE Recreate Product", self.income_account
+        )
+        self.type_recreate = self._create_export_type(
+            "TOUR CIE Recreate Type",
+            "TOURCIERE",
+            self.journal_recreate,
+            self.product_recreate,
+        )
+        partner_recreate = self.env["res.partner"].create(
+            {"name": "TOUR CIE Recreate Partner"}
+        )
+        self._create_invoice(
+            partner_recreate, self.journal_recreate, self.product_recreate, "2026-03-05"
+        )
+        self.export_recreate = (
+            self.env["customer_invoice_export"]
+            .with_user(self.admin)
+            .create(
+                {
+                    "type_id": self.type_recreate.id,
+                    "date": "2026-03-10",
+                    "output_format": "csv",
+                }
+            )
+        )
+        self.export_recreate.action_populate()
+        self.export_recreate.with_context(bypass_policy_check=True).action_confirm()
+        # See the matching invalidate_cache() call for export_requeue
+        # above -- the same stale approve_ok caching applies here.
+        self.export_recreate.invalidate_cache()
+        self.export_recreate.with_context(queue_job__no_delay=True).with_user(
+            self.admin
+        ).action_approve_approval()
+
     def _get_income_account(self):
         """Return an existing revenue account, creating one if needed.
 
@@ -569,4 +615,13 @@ class TestUiCustomerInvoiceExport(HttpSavepointCase):
             "/web",
             "ssi_customer_invoice_export_recompute_queue_done_result",
             login="admin",
+        )
+
+    def test_recreate_export_file(self):
+        """Run the recreate export file tour for ``customer_invoice_export``.
+
+        IK: docs/customer_invoice_export/17-recreate-export-file.md
+        """
+        self.start_tour(
+            "/web", "ssi_customer_invoice_export_recreate_export_file", login="admin"
         )
