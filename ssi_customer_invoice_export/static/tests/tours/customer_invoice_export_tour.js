@@ -314,6 +314,29 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     },
                 },
 
+                // Flow 4 (continued) -- the Invoices list can also be
+                // adjusted manually: remove the remaining invoice row
+                // by clicking its trash icon (issue #42).
+                {
+                    content: "Remove the remaining invoice from Invoices",
+                    trigger:
+                        ".o_field_widget[name='move_ids'] .o_data_row:contains(TOUR CIE Edit Late Partner) .o_list_record_remove",
+                },
+                {
+                    // Gerbang: this row was present BEFORE the click
+                    // too (Populate above put it there) -- what is
+                    // impossible before the click is its
+                    // DISAPPEARANCE, which only the removal above can
+                    // cause client-side (same disappearance idiom as
+                    // the Populate gate right above).
+                    content: "Invoices row is removed",
+                    trigger:
+                        ".o_field_widget[name='move_ids']:not(:has(.o_data_row:contains(TOUR CIE Edit Late Partner)))",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
                 // Flow 6 -- Click Save.
                 {
                     content: "Save the record",
@@ -325,6 +348,29 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                 {
                     content: "Record is saved",
                     trigger: ".o_form_view.o_form_readonly",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Post-Condition (issue #42) -- removing the invoice
+                // from Invoices rebuilt Summary too, without clicking
+                // Populate again. write() only runs the rebuild once
+                // the record is actually saved, so this is checked
+                // here rather than right after the client-side removal
+                // above.
+                {
+                    content: "Open the Summary tab",
+                    trigger: ".o_notebook .nav-link:contains(Summary)",
+                },
+                {
+                    // Gerbang: this row was present in Summary BEFORE
+                    // Save too (Populate above put it there) -- what
+                    // is impossible before Save persisted the removal
+                    // above is its DISAPPEARANCE from Summary.
+                    content: "Summary no longer shows the removed invoice",
+                    trigger:
+                        ".o_field_widget[name='summary_ids']:not(:has(.o_data_row:contains(TOUR CIE Edit Late Partner)))",
                     run: function () {
                         // Assertion only.
                     },

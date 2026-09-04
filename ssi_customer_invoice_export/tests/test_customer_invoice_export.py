@@ -1378,3 +1378,182 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
 
         self.assertEqual(len(export_doc.summary_ids), 1)
         self.assertEqual(export_doc.summary_ids.amount_residual, 150000.0)
+
+    # -------------------------------------------------------------------
+    # write() rebuilds Invoice Lines/Summary + Confirm gate (issue #42)
+    #
+    # move_ids can be edited manually while Draft; write() must rebuild
+    # line_ids/summary_ids from the current move_ids every time, not
+    # only when action_populate is pressed -- otherwise a dropped
+    # invoice's Summary row survives and gets exported again.
+    # -------------------------------------------------------------------
+
+    def test_write_move_ids_removes_dropped_invoice_from_summary(self):
+        """Assert dropping an invoice from ``move_ids`` rebuilds Summary.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Write Drop Product A", income_account)
+        partner_1 = self.env["res.partner"].create({"name": "Write Drop Partner 1"})
+        partner_2 = self.env["res.partner"].create({"name": "Write Drop Partner 2"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice_1 = self._create_invoice(
+            partner_1, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+        invoice_2 = self._create_invoice(
+            partner_2, journal, [(product_a, 200.0)], "2026-01-06"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.write({"move_ids": [(6, 0, (invoice_1 + invoice_2).ids)]})
+        self.assertEqual(len(export_doc.summary_ids), 2)
+
+        export_doc.write({"move_ids": [(6, 0, invoice_1.ids)]})
+
+        self.assertEqual(export_doc.move_ids, invoice_1)
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        self.assertEqual(export_doc.summary_ids.move_ids, invoice_1)
+        self.assertTrue(all(line.move_id == invoice_1 for line in export_doc.line_ids))
+
+    def test_write_move_ids_adding_invoice_creates_summary_row(self):
+        """Assert adding an invoice to ``move_ids`` builds its row.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Write Add Product A", income_account)
+        partner_1 = self.env["res.partner"].create({"name": "Write Add Partner 1"})
+        partner_2 = self.env["res.partner"].create({"name": "Write Add Partner 2"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice_1 = self._create_invoice(
+            partner_1, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+        invoice_2 = self._create_invoice(
+            partner_2, journal, [(product_a, 200.0)], "2026-01-06"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.write({"move_ids": [(6, 0, invoice_1.ids)]})
+        self.assertEqual(len(export_doc.summary_ids), 1)
+
+        export_doc.write({"move_ids": [(6, 0, (invoice_1 + invoice_2).ids)]})
+
+        self.assertEqual(len(export_doc.summary_ids), 2)
+        self.assertEqual(
+            set(export_doc.summary_ids.mapped("move_ids").ids),
+            {invoice_1.id, invoice_2.id},
+        )
+
+    def test_write_move_ids_empty_clears_summary_and_lines(self):
+        """Assert clearing ``move_ids`` empties Summary and Invoice Lines.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Write Clear Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "Write Clear Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice = self._create_invoice(
+            partner, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.write({"move_ids": [(6, 0, invoice.ids)]})
+        self.assertTrue(export_doc.summary_ids)
+        self.assertTrue(export_doc.line_ids)
+
+        export_doc.write({"move_ids": [(6, 0, [])]})
+
+        self.assertFalse(export_doc.move_ids)
+        self.assertFalse(export_doc.summary_ids)
+        self.assertFalse(export_doc.line_ids)
+
+    def test_confirm_with_consistent_summary_succeeds(self):
+        """Assert Confirm succeeds when Summary matches Invoices.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Confirm OK Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "Confirm OK Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        self._create_invoice(partner, journal, [(product_a, 100.0)], "2026-01-05")
+
+        export_doc = (
+            self.env["customer_invoice_export"]
+            .with_user(self.env.ref("base.user_admin"))
+            .create({"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"})
+        )
+        export_doc.action_populate()
+
+        export_doc.action_confirm()
+        export_doc.invalidate_cache()
+
+        self.assertEqual(export_doc.state, "confirm")
+
+    def test_confirm_raises_when_summary_references_stray_invoice(self):
+        """Assert Confirm refuses a Summary row outside Invoices.
+
+        Regression test for issue #42: ``write()`` never produces a
+        stray Summary row on its own (it always rebuilds from the
+        current ``move_ids``), so the only way to reproduce a document
+        left inconsistent before this consistency check existed is to
+        create the stray row directly -- exactly as
+        ``_01_check_summary_matches_moves``'s docstring describes.
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Stray Summary Product A", income_account)
+        partner_in = self.env["res.partner"].create({"name": "Stray In Partner"})
+        partner_out = self.env["res.partner"].create({"name": "Stray Out Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice_in = self._create_invoice(
+            partner_in, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+        invoice_out = self._create_invoice(
+            partner_out, journal, [(product_a, 200.0)], "2026-01-06"
+        )
+
+        export_doc = (
+            self.env["customer_invoice_export"]
+            .with_user(self.env.ref("base.user_admin"))
+            .create({"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"})
+        )
+        export_doc.write({"move_ids": [(6, 0, invoice_in.ids)]})
+        self.assertEqual(len(export_doc.summary_ids), 1)
+
+        self.env["customer_invoice_export.summary"].create(
+            {
+                "export_id": export_doc.id,
+                "sequence": 100,
+                "move_ids": [(6, 0, invoice_out.ids)],
+                "partner_id": partner_out.id,
+                "currency_id": invoice_out.currency_id.id,
+            }
+        )
+
+        with self.assertRaises(UserError) as error_catcher:
+            export_doc.action_confirm()
+        self.assertIn(invoice_out.name, str(error_catcher.exception))
