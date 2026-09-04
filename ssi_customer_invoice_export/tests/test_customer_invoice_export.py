@@ -1527,6 +1527,15 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertEqual(export_doc.line_ids.mapped("product_id"), product_a)
         self.assertEqual(export_doc.summary_ids.amount_total, 100.0)
 
+        # allowed_product_ids is a non-stored compute depending only on
+        # type_id (models/customer_invoice_export.py), so ctype.write()
+        # above never invalidates it within this same transaction; without
+        # this, action_rederive_summary below would still filter with the
+        # stale product_a. In production, editing the Type and clicking
+        # Reload are two separate requests/transactions, so this staleness
+        # never happens there.
+        export_doc.invalidate_cache(["allowed_product_ids"], export_doc.ids)
+
         export_doc.action_rederive_summary()
 
         self.assertEqual(export_doc.move_ids, invoice)
