@@ -368,6 +368,25 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         moves = self.env["account.move"].search(self._prepare_invoice_domain())
         self.move_ids = [(6, 0, moves.ids)]
 
+    # -------------------------------------------------------------------
+    # Reload: rebuild Invoice Lines/Summary from the current Invoices
+    # -------------------------------------------------------------------
+
+    def action_rederive_summary(self):
+        """Rebuild Invoice Lines and Summary from the current Invoices.
+
+        Runs each record's ``_rederive_summary`` under ``sudo`` so
+        users without direct access to ``account.move.line`` can still
+        trigger the rebuild from the button. Unlike ``action_populate``,
+        ``move_ids`` itself is never touched -- only useful once a Type
+        configuration change (product criteria, Grouping Method, ...)
+        has left ``line_ids``/``summary_ids`` stale, since editing the
+        Type does not write to this document and therefore never fires
+        ``write()``'s own trigger.
+        """
+        for record in self.sudo():
+            record._rederive_summary()
+
     def write(self, vals):
         """Rebuild Invoice Lines and Summary whenever Invoices changes.
 

@@ -1486,6 +1486,122 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
         self.assertFalse(export_doc.summary_ids)
         self.assertFalse(export_doc.line_ids)
 
+    # -------------------------------------------------------------------
+    # Reload (action_rederive_summary) -- rebuilds Invoice Lines/Summary
+    # from the current Invoices without touching move_ids, unlike
+    # Populate.
+    # -------------------------------------------------------------------
+
+    def test_rederive_summary_after_type_criteria_changed(self):
+        """Assert Reload rebuilds Summary after the Type's Type changed.
+
+        Editing the Type's product criteria never writes to the export
+        document itself, so ``write()``'s own trigger never fires --
+        Invoice Lines/Summary stay stale until ``action_rederive_summary``
+        (the Reload button) is called directly. Pure Python -- trigger
+        P10 (L-09, L-10: fixture setup needs a conditional
+        search-or-create for the income account, which a single EVAL:
+        expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Reload Product A", income_account)
+        product_b = self._create_product("Reload Product B", income_account)
+        partner = self.env["res.partner"].create({"name": "Reload Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice = self._create_invoice(
+            partner, journal, [(product_a, 100.0), (product_b, 50.0)], "2026-01-05"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+        self.assertEqual(export_doc.line_ids.mapped("product_id"), product_a)
+        self.assertEqual(export_doc.summary_ids.amount_total, 100.0)
+
+        # Fix the Type's product criteria to product_b -- this never
+        # writes to export_doc, so line_ids/summary_ids stay stale on
+        # product_a until Reload is clicked.
+        ctype.write({"product_ids": [(6, 0, product_b.ids)]})
+        self.assertEqual(export_doc.line_ids.mapped("product_id"), product_a)
+        self.assertEqual(export_doc.summary_ids.amount_total, 100.0)
+
+        # allowed_product_ids is a non-stored compute depending only on
+        # type_id (models/customer_invoice_export.py), so ctype.write()
+        # above never invalidates it within this same transaction; without
+        # this, action_rederive_summary below would still filter with the
+        # stale product_a. In production, editing the Type and clicking
+        # Reload are two separate requests/transactions, so this staleness
+        # never happens there.
+        export_doc.invalidate_cache(["allowed_product_ids"], export_doc.ids)
+
+        export_doc.action_rederive_summary()
+
+        self.assertEqual(export_doc.move_ids, invoice)
+        self.assertEqual(export_doc.line_ids.mapped("product_id"), product_b)
+        self.assertEqual(export_doc.summary_ids.amount_total, 50.0)
+
+    def test_rederive_summary_keeps_manual_move_ids_adjustment(self):
+        """Assert Reload never restores an invoice dropped from Invoices.
+
+        Contrasts with ``action_populate``, which always re-runs
+        ``_prepare_invoice_domain`` and would bring the dropped invoice
+        back. Pure Python -- trigger P10 (L-09, L-10: fixture setup
+        needs a conditional search-or-create for the income account,
+        which a single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Reload Keep Product A", income_account)
+        product_b = self._create_product("Reload Keep Product B", income_account)
+        partner_1 = self.env["res.partner"].create({"name": "Reload Keep Partner 1"})
+        partner_2 = self.env["res.partner"].create({"name": "Reload Keep Partner 2"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice_1 = self._create_invoice(
+            partner_1, journal, [(product_a, 100.0)], "2026-01-05"
+        )
+        invoice_2 = self._create_invoice(
+            partner_2, journal, [(product_a, 200.0)], "2026-01-06"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+        self.assertEqual(set(export_doc.move_ids.ids), {invoice_1.id, invoice_2.id})
+
+        # Manually drop invoice_2, then fix an unrelated Type criterion.
+        export_doc.write({"move_ids": [(6, 0, invoice_1.ids)]})
+        ctype.write({"product_ids": [(6, 0, (product_a + product_b).ids)]})
+
+        export_doc.action_rederive_summary()
+
+        self.assertEqual(export_doc.move_ids, invoice_1)
+        self.assertEqual(export_doc.summary_ids.move_ids, invoice_1)
+
+    def test_rederive_summary_on_empty_move_ids_clears_lines(self):
+        """Assert Reload on a Draft document without Invoices is a no-op.
+
+        Pure Python -- trigger P10 (L-09: the Type fixture needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Reload Empty Product A", income_account)
+        ctype = self._create_export_type(journal, product_a)
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+
+        export_doc.action_rederive_summary()
+
+        self.assertFalse(export_doc.move_ids)
+        self.assertFalse(export_doc.line_ids)
+        self.assertFalse(export_doc.summary_ids)
+
     def test_confirm_with_consistent_summary_succeeds(self):
         """Assert Confirm succeeds when Summary matches Invoices.
 

@@ -284,6 +284,36 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
                     },
                 },
 
+                // Flow 5 (Inline Action, issue #46) -- on the Invoice
+                // Lines tab, click Reload to rebuild Invoice Lines and
+                // Summary from the currently selected Invoices. Grouped
+                // here with Reload Template Policy, BEFORE Populate
+                // (Flow 4), for the same race-avoidance reason: Reload
+                // is a third type="object" button that auto-saves and
+                // reloads the record, and Populate's own gate below --
+                // a genuine content token, not just a disable/enable
+                // idiom -- must stay the last asynchronous action
+                // before Save.
+                {
+                    content: "Open the Invoice Lines tab",
+                    trigger: ".o_notebook .nav-link:contains(Invoice Lines)",
+                },
+                {
+                    content: "Click Reload",
+                    trigger: "button[name='action_rederive_summary']",
+                },
+                {
+                    // Gerbang -- same disable/enable idiom as Reload
+                    // Template Policy above: only a partial guarantee,
+                    // relied on here only because Populate's own robust
+                    // gate still follows before Save.
+                    content: "Reload call has completed",
+                    trigger: "button[name='action_rederive_summary']:enabled",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
                 // Flow 4 -- Click Populate to refresh the Invoices list.
                 {
                     content: "Open the Invoices tab",
