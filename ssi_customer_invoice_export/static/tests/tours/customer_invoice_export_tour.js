@@ -1076,4 +1076,70 @@ odoo.define("ssi_customer_invoice_export.customer_invoice_export_tour", function
             ]
         )
     );
+
+    // IK: docs/customer_invoice_export/17-recreate-export-file.md
+    tour.register(
+        "ssi_customer_invoice_export_recreate_export_file",
+        {
+            test: true,
+            url: "/web",
+        },
+        [].concat(
+            // Flow 1 -- Open the Customer Invoice Exports menu.
+            openCustomerInvoiceExportList(),
+            [
+                // Flow 2 -- Open the record to regenerate.
+                {
+                    content: "Open the record",
+                    trigger:
+                        ".o_data_row:contains(TOUR CIE Recreate Type) .o_data_cell:first",
+                    extra_trigger: ".o_list_view",
+                },
+                {
+                    content: "Form is open",
+                    trigger: ".o_form_view",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+
+                // Flow 3 -- Open the Export File tab.
+                {
+                    content: "Open the Export File tab",
+                    trigger: ".o_notebook .nav-link:contains(Export File)",
+                },
+
+                // Flow 4 -- Click the Recreate Export File button. This
+                // button carries no confirm= attribute (Keputusan
+                // Desain, issue #43), so -- like Requeue above -- no
+                // dialog step follows it.
+                {
+                    content: "Click the Recreate Export File button",
+                    trigger: ".o_form_view button[name='action_recreate_export_file']",
+                },
+
+                // Post-Condition -- Export File Name is filled in
+                // again. The button lives on a <page>, not the
+                // statusbar/button box, so it never goes `disabled`
+                // while the RPC runs (odoo-development-ui-test skill,
+                // patterns-advanced-gotchas.md §P "Batasan penting") --
+                // `:enabled` would match seketika and gate nothing.
+                // setUp() overwrites Export File Name with the marker
+                // "TOUR-CIE-STALE-MARKER" right after building the
+                // fixture, a value `_build_export_filename` can never
+                // itself produce (it always appends a real
+                // `YYYYmmdd_HHMMSS` timestamp plus extension), so the
+                // marker's DISAPPEARANCE is only possible once this
+                // click's regeneration has actually landed.
+                {
+                    content: "Export File Name is filled in again",
+                    trigger:
+                        ".o_field_widget[name='export_file']:not(:contains(TOUR-CIE-STALE-MARKER))",
+                    run: function () {
+                        // Assertion only.
+                    },
+                },
+            ]
+        )
+    );
 });
