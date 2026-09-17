@@ -345,7 +345,8 @@ msgstr ""
 #: model:ir.model.fields,help:ssi_customer_invoice_export.field_customer_invoice_export__move_ids
 msgid ""
 "Customer invoices in scope of this export. Automatically filled by the "
-"Populate button; can be manually adjusted while in Draft."
+"Populate button; can be manually adjusted while in Draft. Never copied by "
+"Duplicate: a duplicated document starts with an empty Invoices list."
 msgstr ""
 
 #. module: ssi_customer_invoice_export
