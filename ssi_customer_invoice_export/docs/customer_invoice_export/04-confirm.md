@@ -14,6 +14,10 @@
   in sync automatically by any edit to **Invoices**, so this only fails for a document
   whose **Invoices** were edited before this consistency check existed. Use **Populate**
   on `02-edit` to rebuild **Invoice Lines** and **Summary** first.
+- **Record:** If **Invoices** is not empty, **Summary** is not empty -- kept in sync
+  automatically by **Populate** and by any edit to **Invoices**, so this only fails if
+  **Summary** was cleared directly, bypassing those triggers. Use **Reload** (or
+  **Populate**) on `02-edit` to rebuild **Invoice Lines** and **Summary** first.
 - **Config:** An active `policy.template` for this model grants `confirm_ok` for state
   `draft` to the actor's group.
 - **Config:** An active `approval.template` for this model matches this record and has

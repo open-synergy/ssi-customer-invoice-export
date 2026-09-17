@@ -1823,3 +1823,134 @@ class TestCustomerInvoiceExport(YamlTransactionCase):
 
         self.assertEqual(export_doc.export_file, old_file)
         self.assertEqual(export_doc.export_filename, old_filename)
+
+    # -------------------------------------------------------------------
+    # Duplicate / create() with move_ids (issue #48)
+    # -------------------------------------------------------------------
+
+    def test_duplicate_starts_with_empty_invoices_and_summary(self):
+        """Assert Duplicate never copies Invoices, Lines or Summary.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("Duplicate Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "Duplicate Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        self._create_invoice(partner, journal, [(product_a, 120.0)], "2026-01-08")
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"}
+        )
+        export_doc.action_populate()
+        self.assertEqual(len(export_doc.summary_ids), 1)
+
+        duplicate_doc = export_doc.copy()
+
+        self.assertFalse(duplicate_doc.move_ids)
+        self.assertFalse(duplicate_doc.line_ids)
+        self.assertFalse(duplicate_doc.summary_ids)
+        self.assertFalse(duplicate_doc.source_move_ids)
+        self.assertEqual(duplicate_doc.type_id, ctype)
+
+        # The source document is left untouched by the duplication.
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        self.assertTrue(export_doc.move_ids)
+
+    def test_create_with_move_ids_builds_summary(self):
+        """Assert ``create()`` with ``move_ids`` builds Summary/Lines.
+
+        Pure Python -- trigger P10 (L-09, L-10: fixture setup needs a
+        conditional search-or-create for the income account, which a
+        single EVAL: expression cannot express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("CreateMoveIds Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "CreateMoveIds Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        invoice = self._create_invoice(
+            partner, journal, [(product_a, 90.0)], "2026-01-09"
+        )
+
+        export_doc = self.env["customer_invoice_export"].create(
+            {
+                "type_id": ctype.id,
+                "date": "2026-03-01",
+                "output_format": "csv",
+                "move_ids": [(6, 0, invoice.ids)],
+            }
+        )
+
+        self.assertEqual(len(export_doc.summary_ids), 1)
+        self.assertEqual(export_doc.summary_ids.move_ids, invoice)
+        self.assertTrue(all(line.move_id == invoice for line in export_doc.line_ids))
+
+    def test_confirm_raises_when_invoices_filled_summary_empty(self):
+        """Assert Confirm refuses filled Invoices with an empty Summary.
+
+        Bypasses ``write()``'s own consistency trigger by ``unlink()``-
+        ing ``summary_ids`` directly -- the same technique used by
+        ``test_confirm_raises_when_summary_references_stray_invoice``
+        for the sibling gate. Pure Python -- trigger P10 (L-09, L-10:
+        fixture setup needs a conditional search-or-create for the
+        income account, which a single EVAL: expression cannot
+        express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("EmptySummary Product A", income_account)
+        partner = self.env["res.partner"].create({"name": "EmptySummary Partner"})
+        ctype = self._create_export_type(journal, product_a)
+        self._create_invoice(partner, journal, [(product_a, 60.0)], "2026-01-11")
+
+        export_doc = (
+            self.env["customer_invoice_export"]
+            .with_user(self.env.ref("base.user_admin"))
+            .create({"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"})
+        )
+        export_doc.action_populate()
+        self.assertTrue(export_doc.summary_ids)
+
+        export_doc.summary_ids.unlink()
+        export_doc.invalidate_cache()
+        self.assertTrue(export_doc.move_ids)
+        self.assertFalse(export_doc.summary_ids)
+
+        with self.assertRaises(UserError) as error_catcher:
+            export_doc.action_confirm()
+        self.assertIn("Summary is empty", str(error_catcher.exception))
+
+        export_doc.invalidate_cache()
+        self.assertEqual(export_doc.state, "draft")
+
+    def test_confirm_without_invoices_still_succeeds(self):
+        """Assert Confirm still succeeds on a Draft with no Invoices.
+
+        ``_02_check_summary_not_empty`` only refuses Confirm when
+        Invoices is filled and Summary is empty; a document that never
+        had any Invoices at all keeps its long-standing behaviour of
+        being confirmable as-is. Pure Python -- trigger P10 (L-09,
+        L-10: fixture setup needs a conditional search-or-create for
+        the income account, which a single EVAL: expression cannot
+        express).
+        """
+        journal = self._get_sale_journal()
+        income_account = self._get_income_account()
+        product_a = self._create_product("EmptyDoc Product A", income_account)
+        ctype = self._create_export_type(journal, product_a)
+
+        export_doc = (
+            self.env["customer_invoice_export"]
+            .with_user(self.env.ref("base.user_admin"))
+            .create({"type_id": ctype.id, "date": "2026-03-01", "output_format": "csv"})
+        )
+        self.assertFalse(export_doc.move_ids)
+
+        export_doc.action_confirm()
+        export_doc.invalidate_cache()
+
+        self.assertEqual(export_doc.state, "confirm")
