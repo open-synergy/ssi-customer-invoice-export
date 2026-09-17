@@ -192,10 +192,12 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         column2="move_id",
         readonly=True,
         states={"draft": [("readonly", False)]},
+        copy=False,
         help=(
             "Customer invoices in scope of this export. Automatically "
             "filled by the Populate button; can be manually adjusted while "
-            "in Draft."
+            "in Draft. Never copied by Duplicate: a duplicated document "
+            "starts with an empty Invoices list."
         ),
     )
     source_move_ids = fields.Many2many(
@@ -223,6 +225,7 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         column1="export_id",
         column2="line_id",
         readonly=True,
+        copy=False,
         help=(
             "Invoice lines whose product matches the Type's product "
             "criteria. Derived by the Populate button."
@@ -386,6 +389,29 @@ class CustomerInvoiceExport(models.Model):  # pylint: disable=too-few-public-met
         """
         for record in self.sudo():
             record._rederive_summary()
+
+    @api.model
+    def create(self, vals):
+        """Rebuild Invoice Lines and Summary when Invoices is set at birth.
+
+        Runs ``super()`` first so the record (and its ``move_ids``, if
+        any) already exists, then rebuilds ``line_ids``/``summary_ids``
+        under ``sudo()`` when ``move_ids`` was part of ``vals`` --
+        mirroring ``write()``'s own trigger below. Covers every path
+        that creates a record with ``move_ids`` already filled,
+        including Duplicate (``copy()`` calls ``create()``, never
+        ``write()``), import, and any glue module or XML-RPC caller
+        that passes ``move_ids`` directly instead of going through
+        Populate.
+
+        :param vals: field values for the new record
+        :return: the newly created record
+        :rtype: recordset
+        """
+        result = super().create(vals)
+        if "move_ids" in vals:
+            result.sudo()._rederive_summary()
+        return result
 
     def write(self, vals):
         """Rebuild Invoice Lines and Summary whenever Invoices changes.
@@ -848,6 +874,35 @@ Solution: Click Populate to rebuild Invoice Lines and Summary from the current I
 """ % (
                 self.id,
                 ", ".join(stray_moves.mapped("name")),
+            )
+            raise UserError(_(error_message))
+
+    @ssi_decorator.pre_confirm_check()
+    def _02_check_summary_not_empty(self):
+        """Refuse Confirm if Invoices is filled but Summary is empty.
+
+        ``create()``/``write()`` keep Summary in sync with Invoices
+        whenever ``move_ids`` is touched through the ORM, but a caller
+        that mutates ``summary_ids`` directly (bypassing those hooks)
+        can still leave a document with Invoices filled and Summary
+        empty. Left uncaught, such a document passes Confirm/Approve
+        and only fails later, inside ``queue.job``, when
+        ``_generate_export_file`` finds no rows to export.
+
+        :raises UserError: when ``move_ids`` is non-empty and
+            ``summary_ids`` is empty
+        """
+        self.ensure_one()
+        if self.move_ids and not self.summary_ids:
+            error_message = """
+Context: Confirming customer invoice export
+Database ID: %s
+Problem: Invoices is filled but Summary is empty, so no export file can be generated
+Solution: Click Reload (or Populate) on the Invoice Lines tab to rebuild Invoice Lines
+and Summary; if Summary stays empty, no line of the selected invoices matches the Type's
+product criteria
+""" % (
+                self.id,
             )
             raise UserError(_(error_message))
 
